@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Loader2, Upload, FileText, Download, CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, Upload, FileText, Download, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -201,7 +202,7 @@ const Index = () => {
               to="/historico"
               className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
             >
-              <History className="h-4 w-4" />
+              <HistoryIcon className="h-4 w-4" />
               Histórico
             </Link>
           </div>
