@@ -1,11 +1,8 @@
 // Edge function: receives a PDF (base64), extracts text, calls (mocked) analysis API,
 // returns the 12-section JSON result.
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
-import { getDocument, GlobalWorkerOptions } from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
-
-// pdfjs in Deno: disable worker
-// @ts-ignore
-GlobalWorkerOptions.workerSrc = "";
+// @ts-ignore - npm specifier in Deno
+import { getDocument } from "npm:pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
