@@ -184,11 +184,16 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <header className="relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
-        <div className="absolute inset-0 opacity-20 [background:radial-gradient(circle_at_20%_20%,white,transparent_40%)]" />
+        <div className="absolute inset-0 opacity-20 [background:radial-gradient(circle_at_15%_10%,white,transparent_45%)]" />
+        <div className="absolute -bottom-px left-0 right-0 h-1" style={{ background: "var(--gradient-accent)" }} />
         <div className="container relative mx-auto px-4 py-12 md:py-16">
-          <div className="flex items-center gap-2 text-primary-foreground/80 text-sm font-medium mb-4">
-            <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-            SoftExpert · Inteligência Comercial
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15">
+              <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+              <span className="text-primary-foreground text-xs font-semibold tracking-wide uppercase">
+                SoftExpert Software S.A.
+              </span>
+            </div>
           </div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-primary-foreground leading-tight">
             Licitações Calculator
@@ -196,7 +201,7 @@ const Index = () => {
               Análise automática de editais e TRs
             </span>
           </h1>
-          <p className="mt-4 max-w-2xl text-primary-foreground/80 text-sm md:text-base">
+          <p className="mt-4 max-w-2xl text-primary-foreground/85 text-sm md:text-base">
             Faça o upload de um edital ou termo de referência em PDF e receba um parecer
             estruturado em 12 seções para apoiar a decisão GO/NO-GO.
           </p>
@@ -315,8 +320,22 @@ const Index = () => {
         )}
       </main>
 
-      <footer className="border-t border-border mt-12 py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} SoftExpert · Licitações Calculator
+      <footer className="border-t border-border mt-12 py-8">
+        <div className="container mx-auto px-4 flex flex-col items-center gap-2 text-center">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+            SoftExpert Software S.A.
+          </div>
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Licitações Calculator
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Desenvolvido por{" "}
+            <span className="font-semibold text-foreground">Michele Souza Cezar</span>
+            <span className="mx-1.5 text-accent">·</span>
+            <span className="text-primary/80">Sales Ops</span>
+          </p>
+        </div>
       </footer>
     </div>
   );
