@@ -183,27 +183,36 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
-      <header className="relative overflow-hidden" style={{ background: "var(--gradient-hero)" }}>
+      <header className="relative overflow-hidden border-b border-border" style={{ background: "var(--gradient-hero)" }}>
         <div className="absolute inset-0 opacity-20 [background:radial-gradient(circle_at_15%_10%,white,transparent_45%)]" />
         <div className="absolute -bottom-px left-0 right-0 h-1" style={{ background: "var(--gradient-accent)" }} />
-        <div className="container relative mx-auto px-4 py-12 md:py-16">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15">
-              <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-              <span className="text-primary-foreground text-xs font-semibold tracking-wide uppercase">
-                SoftExpert Software S.A.
-              </span>
-            </div>
-          </div>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-primary-foreground leading-tight">
-            Licitações Calculator
-            <span className="block text-accent text-xl md:text-2xl font-semibold mt-2">
-              Análise automática de editais e TRs
+        <div className="container relative mx-auto px-4 py-10 md:py-16">
+          {/* Brand bar */}
+          <div className="flex items-center gap-2.5 mb-8">
+            <svg viewBox="0 0 32 32" className="h-8 w-8 text-accent" fill="currentColor" aria-hidden="true">
+              <path d="M16 1.5l12.5 7.25v14.5L16 30.5 3.5 23.25V8.75L16 1.5z" />
+            </svg>
+            <span className="text-primary-foreground font-bold text-lg tracking-tight">
+              Soft<span className="text-accent">Expert</span>
             </span>
+          </div>
+
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 mb-5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+            <span className="text-primary-foreground text-[11px] font-semibold tracking-wider uppercase">
+              Inteligência Comercial
+            </span>
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary-foreground leading-[1.05]">
+            Licitações <span className="text-accent">Calculator</span>
           </h1>
-          <p className="mt-4 max-w-2xl text-primary-foreground/85 text-sm md:text-base">
-            Faça o upload de um edital ou termo de referência em PDF e receba um parecer
-            estruturado em 12 seções para apoiar a decisão GO/NO-GO.
+          <p className="mt-3 text-primary-foreground/70 text-base md:text-lg font-medium">
+            Análise automática de editais e termos de referência
+          </p>
+          <p className="mt-5 max-w-2xl text-primary-foreground/80 text-sm md:text-base leading-relaxed">
+            Faça o upload de um edital ou TR em PDF e receba um parecer estruturado em
+            12 seções para apoiar a decisão GO/NO-GO.
           </p>
         </div>
       </header>
@@ -320,11 +329,13 @@ const Index = () => {
         )}
       </main>
 
-      <footer className="border-t border-border mt-12 py-8">
+      <footer className="border-t border-border mt-12 py-8 bg-secondary/40">
         <div className="container mx-auto px-4 flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-            SoftExpert Software S.A.
+          <div className="flex items-center gap-2 text-sm font-bold text-primary">
+            <svg viewBox="0 0 32 32" className="h-4 w-4 text-accent" fill="currentColor" aria-hidden="true">
+              <path d="M16 1.5l12.5 7.25v14.5L16 30.5 3.5 23.25V8.75L16 1.5z" />
+            </svg>
+            Soft<span className="text-accent">Expert</span> Software S.A.
           </div>
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Licitações Calculator
