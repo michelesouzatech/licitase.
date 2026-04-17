@@ -1,0 +1,4 @@
+project_id = "dvgdrctdnfdrtmfkhzgb"
+
+[functions.analisar-edital]
+verify_jwt = false
