@@ -8,28 +8,28 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* SoftExpert palette: deep navy + signature orange accent */
-    --background: 210 40% 98%;
-    --foreground: 220 40% 12%;
+    /* SoftExpert official palette: deep navy #002A5C + signature lime green #C2D500 */
+    --background: 210 33% 98%;
+    --foreground: 213 100% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 40% 12%;
+    --card-foreground: 213 100% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 40% 12%;
+    --popover-foreground: 213 100% 10%;
 
-    --primary: 218 70% 22%;
+    --primary: 213 100% 18%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 218 70% 35%;
+    --primary-glow: 213 80% 32%;
 
-    --secondary: 215 30% 95%;
-    --secondary-foreground: 218 70% 22%;
+    --secondary: 213 30% 95%;
+    --secondary-foreground: 213 100% 18%;
 
-    --muted: 215 25% 94%;
-    --muted-foreground: 218 15% 42%;
+    --muted: 213 20% 94%;
+    --muted-foreground: 213 15% 40%;
 
-    --accent: 22 95% 54%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 66 100% 42%;
+    --accent-foreground: 213 100% 10%;
 
     --success: 142 71% 38%;
     --warning: 38 92% 50%;
@@ -37,16 +37,16 @@ All colors MUST be HSL.
     --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 25% 88%;
-    --input: 215 25% 90%;
-    --ring: 218 70% 22%;
+    --border: 213 20% 88%;
+    --input: 213 20% 90%;
+    --ring: 213 100% 18%;
 
     --radius: 0.75rem;
 
-    --gradient-hero: linear-gradient(135deg, hsl(218 70% 18%) 0%, hsl(218 70% 30%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(22 95% 54%) 0%, hsl(15 90% 50%) 100%);
-    --shadow-elegant: 0 10px 40px -12px hsl(218 70% 22% / 0.25);
-    --shadow-card: 0 2px 8px -2px hsl(218 30% 30% / 0.08);
+    --gradient-hero: linear-gradient(135deg, hsl(213 100% 14%) 0%, hsl(213 100% 22%) 60%, hsl(213 80% 30%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(66 100% 42%) 0%, hsl(72 100% 38%) 100%);
+    --shadow-elegant: 0 10px 40px -12px hsl(213 100% 18% / 0.3);
+    --shadow-card: 0 2px 8px -2px hsl(213 50% 20% / 0.08);
 
     --sidebar-background: 0 0% 98%;
 
