@@ -1,8 +1,13 @@
 // Edge function: receives a PDF (base64), extracts text, calls (mocked) analysis API,
 // returns the 12-section JSON result.
-import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
 // @ts-ignore - npm specifier in Deno
-import { getDocument } from "npm:pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
+import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
@@ -12,24 +17,9 @@ function base64ToUint8Array(b64: string): Uint8Array {
 }
 
 async function extractPdfText(data: Uint8Array): Promise<string> {
-  const loadingTask = getDocument({
-    data,
-    disableWorker: true,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  });
-  const pdf = await loadingTask.promise;
-  let fullText = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      // @ts-ignore
-      .map((it: any) => (typeof it.str === "string" ? it.str : ""))
-      .join(" ");
-    fullText += `\n\n--- Página ${i} ---\n${pageText}`;
-  }
-  return fullText.trim();
+  const pdf = await getDocumentProxy(data);
+  const { text } = await extractText(pdf, { mergePages: true });
+  return (text as string).trim();
 }
 
 function buildMockResult(fileName: string, text: string) {
