@@ -188,13 +188,22 @@ const Index = () => {
         <div className="absolute -bottom-px left-0 right-0 h-1" style={{ background: "var(--gradient-accent)" }} />
         <div className="container relative mx-auto px-4 py-10 md:py-16">
           {/* Brand bar */}
-          <div className="flex items-center gap-2.5 mb-8">
-            <svg viewBox="0 0 32 32" className="h-8 w-8 text-accent" fill="currentColor" aria-hidden="true">
-              <path d="M16 1.5l12.5 7.25v14.5L16 30.5 3.5 23.25V8.75L16 1.5z" />
-            </svg>
-            <span className="text-primary-foreground font-bold text-lg tracking-tight">
-              Soft<span className="text-accent">Expert</span>
-            </span>
+          <div className="flex items-center justify-between gap-3 mb-8">
+            <div className="flex items-center gap-2.5">
+              <svg viewBox="0 0 32 32" className="h-8 w-8 text-accent" fill="currentColor" aria-hidden="true">
+                <path d="M16 1.5l12.5 7.25v14.5L16 30.5 3.5 23.25V8.75L16 1.5z" />
+              </svg>
+              <span className="text-primary-foreground font-bold text-lg tracking-tight">
+                Soft<span className="text-accent">Expert</span>
+              </span>
+            </div>
+            <Link
+              to="/historico"
+              className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
+            >
+              <History className="h-4 w-4" />
+              Histórico
+            </Link>
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 mb-5">
