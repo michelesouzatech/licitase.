@@ -119,7 +119,7 @@ const Index = () => {
     doc.rect(0, 0, pageW, 60, "F");
     doc.setTextColor(255);
     doc.setFontSize(16);
-    doc.text("Licitações Calculator - SoftExpert", margin, 38);
+    doc.text("LicitaExpert · SoftExpert", margin, 38);
     doc.setFontSize(10);
     doc.text(file?.name ?? "", pageW - margin, 38, { align: "right" });
     y = 90;
@@ -205,7 +205,7 @@ const Index = () => {
           </div>
 
           <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary-foreground leading-[1.05]">
-            Licitações <span className="text-accent">Calculator</span>
+            Licita<span className="text-accent">Expert</span>
           </h1>
           <p className="mt-3 text-primary-foreground/70 text-base md:text-lg font-medium">
             Análise automática de editais e termos de referência
@@ -335,10 +335,10 @@ const Index = () => {
             <svg viewBox="0 0 32 32" className="h-4 w-4 text-accent" fill="currentColor" aria-hidden="true">
               <path d="M16 1.5l12.5 7.25v14.5L16 30.5 3.5 23.25V8.75L16 1.5z" />
             </svg>
-            Soft<span className="text-accent">Expert</span> Software S.A.
+            <span>SoftExpert Software S.A.</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Licitações Calculator
+            © {new Date().getFullYear()} LicitaExpert
           </p>
           <p className="text-xs text-muted-foreground">
             Desenvolvido por{" "}
