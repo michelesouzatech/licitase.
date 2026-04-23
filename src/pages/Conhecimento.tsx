@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Database, FileText, Loader2, Search, UploadCloud } from "lucide-react";
+import { BookOpen, Database, FileText, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fileToBase64, formatBytes, normalizeTags } from "@/lib/document-utils";
+import { formatBytes } from "@/lib/document-utils";
 
 type KnowledgeDocument = {
   id: string;
@@ -36,19 +35,11 @@ type SearchChunk = {
   rank: number;
 };
 
-const acceptedExtensions = [".pdf", ".txt", ".docx"];
-
 const Conhecimento = () => {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [results, setResults] = useState<SearchChunk[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [solutionName, setSolutionName] = useState("");
-  const [moduleName, setModuleName] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
   const [query, setQuery] = useState("");
   const [solutionFilter, setSolutionFilter] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
@@ -116,65 +107,6 @@ const Conhecimento = () => {
     [documents, moduleOptions.length, solutionOptions.length],
   );
 
-  const handleFileSelect = (file: File | null) => {
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    if (!acceptedExtensions.some((ext) => lower.endsWith(ext))) {
-      toast.error("Envie um arquivo PDF, TXT ou DOCX");
-      return;
-    }
-    setSelectedFile(file);
-    if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Selecione um arquivo para enviar");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const fileBase64 = await fileToBase64(selectedFile);
-      const tags = normalizeTags(tagsInput);
-      const { data, error: processError } = await supabase.functions.invoke("process-knowledge-document", {
-        body: {
-          fileBase64,
-          fileName: selectedFile.name,
-          fileType: selectedFile.name.split(".").pop()?.toLowerCase() ?? "",
-          title: title || null,
-          solutionName: solutionName || null,
-          moduleName: moduleName || null,
-          tags,
-          fileSizeBytes: selectedFile.size,
-        },
-      });
-
-      if (processError) throw processError;
-
-      const payload = data as { chunkCount?: number } | null;
-      toast.success(
-        payload?.chunkCount
-          ? `Documento processado e indexado em ${payload.chunkCount} trecho(s)`
-          : "Documento processado e indexado na base de conhecimento",
-      );
-      setSelectedFile(null);
-      setTitle("");
-      setSolutionName("");
-      setModuleName("");
-      setTagsInput("");
-      await fetchDocuments();
-      if (query) {
-        await searchKnowledge();
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao processar documento";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="relative overflow-hidden border-b border-border" style={{ background: "var(--gradient-hero)" }}>
@@ -221,45 +153,17 @@ const Conhecimento = () => {
           <MetricCard icon={FileText} label="Módulos" value={totals.modules} />
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <Card className="p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-2">
-              <UploadCloud className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold text-foreground">Novo documento</h2>
+              <Database className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">Acervo SoftExpert</h2>
             </div>
-            <div className="mt-5 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="knowledge-file">Arquivo</Label>
-                <Input
-                  id="knowledge-file"
-                  type="file"
-                  accept=".pdf,.txt,.docx"
-                  onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
-                />
-                <p className="text-xs text-muted-foreground">Formatos aceitos: PDF, TXT e DOCX.</p>
-                {selectedFile && <p className="text-xs font-medium text-foreground">{selectedFile.name} · {formatBytes(selectedFile.size)}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="knowledge-title">Título</Label>
-                <Input id="knowledge-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Catálogo SE Suite" />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="knowledge-solution">Solução</Label>
-                  <Input id="knowledge-solution" value={solutionName} onChange={(e) => setSolutionName(e.target.value)} placeholder="Ex.: SE Suite" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="knowledge-module">Módulo</Label>
-                  <Input id="knowledge-module" value={moduleName} onChange={(e) => setModuleName(e.target.value)} placeholder="Ex.: BPM" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="knowledge-tags">Tags</Label>
-                <Input id="knowledge-tags" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="bpm, workflow, governança" />
-              </div>
-              <Button onClick={handleUpload} disabled={!selectedFile || uploading} className="w-full">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar e indexar"}
-              </Button>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              Esta área é apenas de consulta. A curadoria e indexação dos documentos técnicos da SoftExpert são feitas pela desenvolvedora, mantendo a base global protegida contra alterações de usuários finais.
+            </p>
+            <div className="mt-5 rounded-md border border-border bg-secondary/50 p-4 text-sm text-foreground">
+              O conteúdo indexado aqui alimenta automaticamente a análise de aderência, módulos, integrações, implementação, riscos e evidências dos editais.
             </div>
           </Card>
 
