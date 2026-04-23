@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Upload, FileText, Download, CheckCircle2, History as HistoryIcon } from "lucide-react";
+import { Loader2, Upload, FileText, Download, CheckCircle2, History as HistoryIcon, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthStatus } from "@/components/auth/AuthStatus";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -198,13 +199,23 @@ const Index = () => {
                 Soft<span className="text-accent">Expert</span>
               </span>
             </div>
-            <Link
-              to="/historico"
-              className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
-            >
-              <HistoryIcon className="h-4 w-4" />
-              Histórico
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/conhecimento"
+                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
+              >
+                <BookOpen className="h-4 w-4" />
+                Base
+              </Link>
+              <Link
+                to="/historico"
+                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
+              >
+                <HistoryIcon className="h-4 w-4" />
+                Histórico
+              </Link>
+              <AuthStatus />
+            </div>
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 mb-5">
