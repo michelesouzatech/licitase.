@@ -6,8 +6,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { z } from "npm:zod@3.25.76";
 // @ts-ignore - npm specifier in Deno
 import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
+
+const requestSchema = z.object({
+  fileBase64: z.string().min(1),
+  fileName: z.string().min(1),
+});
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
@@ -79,6 +86,73 @@ function buildMockResult(fileName: string, text: string) {
   };
 }
 
+function buildSearchQuery(text: string) {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 3);
+
+  return Array.from(new Set(words)).slice(0, 12).join(" ");
+}
+
+async function loadKnowledgeContext(req: Request, editalText: string) {
+  const authHeader = req.headers.get("Authorization");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+
+  if (!authHeader || !supabaseUrl || !supabaseAnonKey || !editalText.trim()) {
+    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  }
+
+  const searchText = buildSearchQuery(editalText);
+
+  if (!searchText) {
+    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  }
+
+  const { data, error } = await supabase.rpc("search_knowledge_chunks", {
+    search_text: searchText,
+    match_count: 6,
+    filter_solution: null,
+    filter_module: null,
+  });
+
+  if (error || !Array.isArray(data) || data.length === 0) {
+    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  }
+
+  const matchedChunks = data
+    .map((item: any) => {
+      const title = item.title ?? item.file_name ?? "Documento";
+      const solution = item.solution_name ? ` | Solução: ${item.solution_name}` : "";
+      const module = item.module_name ? ` | Módulo: ${item.module_name}` : "";
+      return `- ${title}${solution}${module}\n${String(item.content ?? "").trim()}`;
+    })
+    .filter(Boolean);
+
+  return {
+    knowledgeContext: matchedChunks.join("\n\n"),
+    matchedChunks,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -86,14 +160,16 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { fileBase64, fileName } = body as { fileBase64?: string; fileName?: string };
+    const parsed = requestSchema.safeParse(body);
 
-    if (!fileBase64 || !fileName) {
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ error: "fileBase64 e fileName são obrigatórios" }),
+        JSON.stringify({ error: parsed.error.flatten().fieldErrors }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    const { fileBase64, fileName } = parsed.data;
 
     let editalText = "";
     try {
@@ -104,12 +180,18 @@ Deno.serve(async (req) => {
       editalText = "";
     }
 
+    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(req, editalText);
+
     let resultado: unknown;
     try {
       const apiResp = await fetch("https://n8mlsl-3000.csb.app/licitacao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edital_text: editalText, file_name: fileName }),
+        body: JSON.stringify({
+          edital_text: editalText,
+          file_name: fileName,
+          knowledge_context: knowledgeContext || undefined,
+        }),
       });
       const raw = await apiResp.text();
       if (!apiResp.ok) {
@@ -136,7 +218,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ editalText, resultado }),
+      JSON.stringify({ editalText, resultado, knowledgeContext, matchedChunksCount: matchedChunks.length }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
