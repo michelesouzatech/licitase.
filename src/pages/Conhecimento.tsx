@@ -10,8 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fileToBase64, formatBytes, normalizeTags } from "@/lib/document-utils";
-import { useAuth } from "@/components/auth/AuthGate";
-import { AuthStatus } from "@/components/auth/AuthStatus";
 
 type KnowledgeDocument = {
   id: string;
@@ -41,7 +39,6 @@ type SearchChunk = {
 const acceptedExtensions = [".pdf", ".txt", ".docx"];
 
 const Conhecimento = () => {
-  const { user } = useAuth();
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [results, setResults] = useState<SearchChunk[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -131,22 +128,13 @@ const Conhecimento = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !user) {
+    if (!selectedFile) {
       toast.error("Selecione um arquivo para enviar");
       return;
     }
 
     setUploading(true);
-    let storagePath = "";
     try {
-      const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      storagePath = `${user.id}/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("knowledge-base")
-        .upload(storagePath, selectedFile, { upsert: false });
-
-      if (uploadError) throw uploadError;
-
       const fileBase64 = await fileToBase64(selectedFile);
       const tags = normalizeTags(tagsInput);
       const { data, error: processError } = await supabase.functions.invoke("process-knowledge-document", {
@@ -154,7 +142,6 @@ const Conhecimento = () => {
           fileBase64,
           fileName: selectedFile.name,
           fileType: selectedFile.name.split(".").pop()?.toLowerCase() ?? "",
-          storagePath,
           title: title || null,
           solutionName: solutionName || null,
           moduleName: moduleName || null,
@@ -181,9 +168,6 @@ const Conhecimento = () => {
         await searchKnowledge();
       }
     } catch (error) {
-      if (storagePath) {
-        await supabase.storage.from("knowledge-base").remove([storagePath]);
-      }
       const message = error instanceof Error ? error.message : "Falha ao processar documento";
       toast.error(message);
     } finally {
@@ -196,7 +180,7 @@ const Conhecimento = () => {
       <header className="relative overflow-hidden border-b border-border" style={{ background: "var(--gradient-hero)" }}>
         <div className="absolute -bottom-px left-0 right-0 h-1" style={{ background: "var(--gradient-accent)" }} />
         <div className="container relative mx-auto px-4 py-8 md:py-10">
-          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2.5">
                 <svg viewBox="0 0 32 32" className="h-7 w-7 text-accent" fill="currentColor" aria-hidden="true">
@@ -216,7 +200,9 @@ const Conhecimento = () => {
                 </Link>
               </div>
             </div>
-            <AuthStatus />
+              <div className="text-right text-xs text-primary-foreground/75">
+                Base compartilhada da ferramenta
+              </div>
           </div>
 
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary-foreground">
