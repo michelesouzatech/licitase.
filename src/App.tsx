@@ -3,7 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthGate, AuthProvider } from "@/components/auth/AuthGate";
 import Index from "./pages/Index.tsx";
 import Historico from "./pages/Historico.tsx";
 import Conhecimento from "./pages/Conhecimento.tsx";
@@ -14,20 +13,16 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthGate>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/historico" element={<Historico />} />
-              <Route path="/conhecimento" element={<Conhecimento />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthGate>
-        </BrowserRouter>
-      </AuthProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/historico" element={<Historico />} />
+          <Route path="/conhecimento" element={<Conhecimento />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

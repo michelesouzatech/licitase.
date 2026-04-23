@@ -13,7 +13,6 @@ const requestSchema = z.object({
   fileBase64: z.string().min(1),
   fileName: z.string().min(1),
   fileType: z.string().min(1),
-  storagePath: z.string().min(1),
   title: z.string().nullable().optional(),
   solutionName: z.string().nullable().optional(),
   moduleName: z.string().nullable().optional(),
@@ -96,19 +95,23 @@ function buildSummary(text: string) {
   return text.slice(0, 500).replace(/\s+/g, " ").trim();
 }
 
+function base64ToArrayBuffer(base64: string) {
+  const bytes = base64ToUint8Array(base64);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!authHeader || !supabaseUrl || !supabaseAnonKey) {
-      return new Response(JSON.stringify({ error: "Autenticação obrigatória" }), {
-        status: 401,
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Configuração do backend incompleta" }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -123,29 +126,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Sessão inválida" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { fileBase64, fileName, fileType, storagePath, title, solutionName, moduleName, tags, fileSizeBytes } = parsed.data;
+    const { fileBase64, fileName, fileType, title, solutionName, moduleName, tags, fileSizeBytes } = parsed.data;
     const bytes = base64ToUint8Array(fileBase64);
     const extractedText = normalizeWhitespace(await extractFileText(fileType, bytes));
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const storagePath = `global/${Date.now()}-${safeName}`;
 
     if (!extractedText) {
       return new Response(JSON.stringify({ error: "Não foi possível extrair texto do arquivo enviado" }), {
@@ -156,10 +143,26 @@ Deno.serve(async (req) => {
 
     const summary = buildSummary(extractedText);
 
+    const { error: storageError } = await supabase.storage
+      .from("knowledge-base")
+      .upload(storagePath, base64ToArrayBuffer(fileBase64), {
+        upsert: false,
+        contentType:
+          fileType.toLowerCase() === "pdf"
+            ? "application/pdf"
+            : fileType.toLowerCase() === "docx"
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "text/plain",
+      });
+
+    if (storageError) {
+      throw storageError;
+    }
+
     const { data: insertedDoc, error: insertDocError } = await supabase
       .from("knowledge_documents")
       .insert({
-        user_id: user.id,
+        user_id: null,
         file_name: fileName,
         file_type: fileType.toLowerCase(),
         title: title ?? null,
@@ -183,7 +186,7 @@ Deno.serve(async (req) => {
     if (chunks.length > 0) {
       const { error: chunkError } = await supabase.from("knowledge_chunks").insert(
         chunks.map((content, index) => ({
-          user_id: user.id,
+          user_id: null,
           document_id: insertedDoc.id,
           chunk_index: index,
           content,
@@ -194,6 +197,7 @@ Deno.serve(async (req) => {
       );
 
       if (chunkError) {
+        await supabase.storage.from("knowledge-base").remove([storagePath]);
         await supabase.from("knowledge_documents").delete().eq("id", insertedDoc.id);
         throw chunkError;
       }
@@ -205,7 +209,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao processar documento";
-    console.error("process-knowledge-document error:", message);
+    console.error("process-knowledge-document error:", error);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -97,29 +97,14 @@ function buildSearchQuery(text: string) {
 }
 
 async function loadKnowledgeContext(req: Request, editalText: string) {
-  const authHeader = req.headers.get("Authorization");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!authHeader || !supabaseUrl || !supabaseAnonKey || !editalText.trim()) {
+  if (!supabaseUrl || !serviceRoleKey || !editalText.trim()) {
     return { knowledgeContext: "", matchedChunks: [] as string[] };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { knowledgeContext: "", matchedChunks: [] as string[] };
-  }
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const searchText = buildSearchQuery(editalText);
 
