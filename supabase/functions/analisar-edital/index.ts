@@ -31,16 +31,16 @@ async function extractPdfText(data: Uint8Array): Promise<string> {
 
 function buildMockResult(fileName: string, text: string, knowledgeContext = "") {
   const preview = text.slice(0, 280).replace(/\s+/g, " ");
-  const knowledgePreview = knowledgeContext
-    ? ` Contexto SoftExpert considerado: ${knowledgeContext.slice(0, 420).replace(/\s+/g, " ")}`
-    : " A base privada SoftExpert não retornou trechos diretamente relacionados para este edital.";
+  const hasKnowledge = Boolean(knowledgeContext.trim());
+  const knowledgePreview = hasKnowledge
+    ? `Foram encontrados trechos na base privada, mas a análise detalhada por IA falhou. Reprocessar para obter aderência validada.`
+    : "A base privada SoftExpert não retornou trechos diretamente relacionados para este edital.";
   return {
     secao_1_objeto:
-      `Contratação de solução de software para gestão integrada, conforme descrito em ${fileName}. ` +
+      `Objeto identificado preliminarmente a partir de ${fileName}. ` +
       `Trecho identificado: "${preview}..."`,
     secao_2_resumo_executivo:
-      "Edital voltado à aquisição de plataforma corporativa com foco em automação de processos, " +
-      "governança e conformidade. Modalidade pregão eletrônico, critério menor preço por lote.",
+      "Não foi possível gerar uma análise automatizada confiável neste momento. O texto do edital foi extraído, mas a etapa de IA não concluiu com sucesso.",
     secao_3_cronograma: {
       tipo: "tabela",
       colunas: ["Etapa", "Prazo"],
@@ -53,39 +53,30 @@ function buildMockResult(fileName: string, text: string, knowledgeContext = "") 
       ],
     },
     secao_4_habilitacao:
-      "Habilitação jurídica, fiscal, trabalhista e econômico-financeira. " +
-      "Capital social mínimo de 10% do valor estimado. Certidões negativas atualizadas.",
+      "A validar diretamente no edital extraído. O fallback não deve inferir requisitos de habilitação.",
     secao_5_atestados:
-      "Atestado(s) de capacidade técnica comprovando fornecimento de solução similar em volume " +
-      "mínimo de 50% do quantitativo licitado, emitido por pessoa jurídica de direito público ou privado.",
+      "A validar diretamente no edital extraído. O fallback não deve inferir exigências de atestados.",
     secao_6_aderencia_matriz: {
       tipo: "tabela",
       colunas: ["Requisito", "Aderência SoftExpert", "Observação"],
       linhas: [
-        ["Solução SaaS", "Total", "Oferta SoftExpert em nuvem"],
-        ["Gestão estratégica de pessoas/desempenho", "Parcial", "Validar módulos e escopo funcional na base técnica"],
-        ["Integrações corporativas", "Parcial", "Confirmar conectores, APIs e SSO exigidos"],
-        ["Implantação e sustentação", "Total", "Apoiar proposta com metodologia e evidências da base"],
-        ["Segurança e conformidade", "Parcial", "Revisar requisitos específicos do edital"],
+        ["Requisitos do edital", "A validar", "A análise por IA não foi concluída; nenhuma aderência deve ser assumida sem evidência da base privada."],
       ],
     },
     secao_7_evidencias:
-      "Documentação técnica, manuais, vídeos demonstrativos e ambiente de POC disponível mediante " +
-      "solicitação. Cases públicos no portal SoftExpert.",
+      hasKnowledge
+        ? "Há trechos recuperados da base privada, mas eles precisam ser reprocessados pela IA para virar evidência estruturada."
+        : "Nenhuma evidência da base privada foi encontrada para este edital.",
     secao_8_modulos:
-      "BPM, GRC, Documentos, Auditoria, Riscos, Indicadores de Desempenho, Workflow.",
+      "Não informado pelo fallback. Reprocessar para identificar módulos somente quando houver evidência na base privada.",
     secao_9_diferenciais:
-      "Plataforma única integrada, baixo TCO, mais de 30 anos de mercado, suporte local, " +
-      "metodologia própria de implantação e centro de excelência em Joinville/SC.",
+      "Não informado pelo fallback. Diferenciais só devem aparecer quando estiverem documentados na base privada.",
     secao_10_riscos:
-      "Prazo de implantação agressivo; exigência de atestado com quantitativo elevado; " +
-      "possíveis customizações no módulo de auditoria.",
+      "Risco principal: análise incompleta porque a etapa de IA falhou ou a base não trouxe evidências suficientes.",
     secao_11_viabilidade:
-      "Viável. Margem estimada saudável considerando reaproveitamento de implantações similares " +
-      "e parceiros locais.",
+      "Indeterminada. Não recomendar GO/NOGO sem análise baseada em evidências.",
     secao_12_go_nogo:
-      "GO CONDICIONAL — recomendação preliminar de participação, condicionada à validação técnica detalhada " +
-      "dos requisitos de gestão de desempenho, integrações, segurança e implantação." + knowledgePreview,
+      `INDETERMINADO — ${knowledgePreview}`,
   };
 }
 
@@ -105,7 +96,16 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
 
   const editalExcerpt = editalText.slice(0, 70000);
   const knowledgeExcerpt = knowledgeContext.slice(0, 18000);
-  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]} quando houver dados tabulares. Seja fiel ao edital, não invente capacidades: quando a base não comprovar aderência, marque como Parcial ou A validar.
+  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]} quando houver dados tabulares.
+
+REGRAS CRÍTICAS DE FIDELIDADE:
+- Não invente funcionalidades, módulos, integrações, certificações, cases, prazos, diferenciais ou aderências.
+- Só marque aderência como "Total" quando houver evidência explícita na BASE PRIVADA SOFTEXPERT.
+- Quando houver indício incompleto, marque "Parcial" e explique exatamente o que falta comprovar.
+- Quando a base não comprovar, marque "Não evidenciado" ou "A validar".
+- Em cada observação da matriz de aderência, cite de forma resumida qual trecho da base sustentou a conclusão; se não houver trecho, diga "sem evidência na base".
+- Se a BASE PRIVADA SOFTEXPERT estiver vazia ou genérica, deixe claro que a aderência não pôde ser comprovada.
+- Não use conhecimento externo sobre a SoftExpert que não esteja na base fornecida.
 
 Arquivo: ${fileName}
 
