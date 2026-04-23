@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthStatus } from "@/components/auth/AuthStatus";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -214,7 +213,9 @@ const Index = () => {
                 <HistoryIcon className="h-4 w-4" />
                 Histórico
               </Link>
-              <AuthStatus />
+              <span className="hidden text-xs font-semibold text-primary-foreground/75 md:inline">
+                Conhecimento global SoftExpert
+              </span>
             </div>
           </div>
 

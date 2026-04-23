@@ -30,7 +30,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthStatus } from "@/components/auth/AuthStatus";
 
 type Licitacao = {
   id: string;
@@ -173,7 +172,9 @@ const Historico = () => {
               >
                 <ArrowLeft className="h-4 w-4" /> Nova análise
               </Link>
-              <AuthStatus />
+              <span className="hidden text-xs font-semibold text-primary-foreground/75 md:inline">
+                Histórico compartilhado
+              </span>
             </div>
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary-foreground">
