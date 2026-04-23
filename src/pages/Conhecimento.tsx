@@ -137,9 +137,10 @@ const Conhecimento = () => {
     }
 
     setUploading(true);
+    let storagePath = "";
     try {
       const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      const storagePath = `${user.id}/${Date.now()}-${safeName}`;
+      storagePath = `${user.id}/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from("knowledge-base")
         .upload(storagePath, selectedFile, { upsert: false });
@@ -148,7 +149,7 @@ const Conhecimento = () => {
 
       const fileBase64 = await fileToBase64(selectedFile);
       const tags = normalizeTags(tagsInput);
-      const { error: processError } = await supabase.functions.invoke("process-knowledge-document", {
+      const { data, error: processError } = await supabase.functions.invoke("process-knowledge-document", {
         body: {
           fileBase64,
           fileName: selectedFile.name,
@@ -164,7 +165,12 @@ const Conhecimento = () => {
 
       if (processError) throw processError;
 
-      toast.success("Documento processado e indexado na base de conhecimento");
+      const payload = data as { chunkCount?: number } | null;
+      toast.success(
+        payload?.chunkCount
+          ? `Documento processado e indexado em ${payload.chunkCount} trecho(s)`
+          : "Documento processado e indexado na base de conhecimento",
+      );
       setSelectedFile(null);
       setTitle("");
       setSolutionName("");
@@ -175,6 +181,9 @@ const Conhecimento = () => {
         await searchKnowledge();
       }
     } catch (error) {
+      if (storagePath) {
+        await supabase.storage.from("knowledge-base").remove([storagePath]);
+      }
       const message = error instanceof Error ? error.message : "Falha ao processar documento";
       toast.error(message);
     } finally {
