@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          id: string
+          module_name: string | null
+          solution_name: string | null
+          tags: string[]
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          id?: string
+          module_name?: string | null
+          solution_name?: string | null
+          tags?: string[]
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          module_name?: string | null
+          solution_name?: string | null
+          tags?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          created_at: string
+          extracted_text: string | null
+          file_name: string
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          module_name: string | null
+          processing_status: string
+          solution_name: string | null
+          storage_path: string
+          summary: string | null
+          tags: string[]
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text?: string | null
+          file_name: string
+          file_size_bytes?: number | null
+          file_type: string
+          id?: string
+          module_name?: string | null
+          processing_status?: string
+          solution_name?: string | null
+          storage_path: string
+          summary?: string | null
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string | null
+          file_name?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          module_name?: string | null
+          processing_status?: string
+          solution_name?: string | null
+          storage_path?: string
+          summary?: string | null
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       licitacoes: {
         Row: {
           data_consulta: string
@@ -49,7 +141,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_knowledge_chunks: {
+        Args: {
+          filter_module?: string
+          filter_solution?: string
+          match_count?: number
+          search_text: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          document_id: string
+          file_name: string
+          module_name: string
+          rank: number
+          solution_name: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
