@@ -108,10 +108,19 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const adminToken = Deno.env.get("KNOWLEDGE_ADMIN_TOKEN");
 
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !adminToken) {
       return new Response(JSON.stringify({ error: "Configuração do backend incompleta" }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const providedToken = req.headers.get("x-knowledge-admin-token");
+    if (!providedToken || providedToken !== adminToken) {
+      return new Response(JSON.stringify({ error: "Acesso restrito à curadoria da base de conhecimento" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
