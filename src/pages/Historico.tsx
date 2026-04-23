@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
+  BookOpen,
   CalendarIcon,
   CheckCircle2,
   FileText,
@@ -29,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthStatus } from "@/components/auth/AuthStatus";
 
 type Licitacao = {
   id: string;
@@ -158,12 +160,21 @@ const Historico = () => {
                 Soft<span className="text-accent">Expert</span>
               </span>
             </div>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" /> Nova análise
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/conhecimento"
+                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
+              >
+                <BookOpen className="h-4 w-4" /> Base
+              </Link>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" /> Nova análise
+              </Link>
+              <AuthStatus />
+            </div>
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary-foreground">
             Histórico de licitações
