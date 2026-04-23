@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Database, FileText, Loader2, Search, UploadCloud } from "lucide-react";
+import { BookOpen, Database, FileText, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fileToBase64, formatBytes, normalizeTags } from "@/lib/document-utils";
+import { formatBytes } from "@/lib/document-utils";
 
 type KnowledgeDocument = {
   id: string;
@@ -36,19 +35,11 @@ type SearchChunk = {
   rank: number;
 };
 
-const acceptedExtensions = [".pdf", ".txt", ".docx"];
-
 const Conhecimento = () => {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [results, setResults] = useState<SearchChunk[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [solutionName, setSolutionName] = useState("");
-  const [moduleName, setModuleName] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
   const [query, setQuery] = useState("");
   const [solutionFilter, setSolutionFilter] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
@@ -115,65 +106,6 @@ const Conhecimento = () => {
     }),
     [documents, moduleOptions.length, solutionOptions.length],
   );
-
-  const handleFileSelect = (file: File | null) => {
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    if (!acceptedExtensions.some((ext) => lower.endsWith(ext))) {
-      toast.error("Envie um arquivo PDF, TXT ou DOCX");
-      return;
-    }
-    setSelectedFile(file);
-    if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Selecione um arquivo para enviar");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const fileBase64 = await fileToBase64(selectedFile);
-      const tags = normalizeTags(tagsInput);
-      const { data, error: processError } = await supabase.functions.invoke("process-knowledge-document", {
-        body: {
-          fileBase64,
-          fileName: selectedFile.name,
-          fileType: selectedFile.name.split(".").pop()?.toLowerCase() ?? "",
-          title: title || null,
-          solutionName: solutionName || null,
-          moduleName: moduleName || null,
-          tags,
-          fileSizeBytes: selectedFile.size,
-        },
-      });
-
-      if (processError) throw processError;
-
-      const payload = data as { chunkCount?: number } | null;
-      toast.success(
-        payload?.chunkCount
-          ? `Documento processado e indexado em ${payload.chunkCount} trecho(s)`
-          : "Documento processado e indexado na base de conhecimento",
-      );
-      setSelectedFile(null);
-      setTitle("");
-      setSolutionName("");
-      setModuleName("");
-      setTagsInput("");
-      await fetchDocuments();
-      if (query) {
-        await searchKnowledge();
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao processar documento";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
