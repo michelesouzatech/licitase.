@@ -228,37 +228,10 @@ Deno.serve(async (req) => {
 
     let resultado: unknown;
     try {
-      const apiResp = await fetch("https://n8mlsl-3000.csb.app/licitacao", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          edital_text: editalText,
-          file_name: fileName,
-          knowledge_context: knowledgeContext || undefined,
-        }),
-      });
-      const raw = await apiResp.text();
-      if (!apiResp.ok) {
-        throw new Error(`Webhook respondeu ${apiResp.status}: ${raw.slice(0, 300)}`);
-      }
-      try {
-        resultado = JSON.parse(raw);
-      } catch {
-        throw new Error(`Resposta do webhook não é JSON válido: ${raw.slice(0, 300)}`);
-      }
-      // Se vier embrulhado em array (n8n costuma retornar [{...}])
-      if (Array.isArray(resultado) && resultado.length > 0) {
-        resultado = (resultado[0] as any).output ?? (resultado[0] as any).json ?? resultado[0];
-      } else if (resultado && typeof resultado === "object" && (resultado as any).output) {
-        resultado = (resultado as any).output;
-      }
+      resultado = await analyzeWithLovableAi(fileName, editalText, knowledgeContext);
     } catch (e) {
-      console.error("Erro ao chamar webhook:", e);
-      const msg = e instanceof Error ? e.message : "Erro ao chamar webhook";
-      return new Response(
-        JSON.stringify({ error: msg, editalText }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      console.error("Erro ao analisar com IA; usando fallback local:", e);
+      resultado = buildMockResult(fileName, editalText, knowledgeContext);
     }
 
     return new Response(
