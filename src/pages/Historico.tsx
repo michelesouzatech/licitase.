@@ -4,7 +4,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ArrowLeft,
-  BookOpen,
   CalendarIcon,
   CheckCircle2,
   FileText,
@@ -161,20 +160,11 @@ const Historico = () => {
             </div>
             <div className="flex items-center gap-2">
               <Link
-                to="/conhecimento"
-                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
-              >
-                <BookOpen className="h-4 w-4" /> Base
-              </Link>
-              <Link
                 to="/"
                 className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" /> Nova análise
               </Link>
-              <span className="hidden text-xs font-semibold text-primary-foreground/75 md:inline">
-                Histórico compartilhado
-              </span>
             </div>
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary-foreground">
