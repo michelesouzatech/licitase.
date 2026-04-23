@@ -24,6 +24,7 @@ export type Database = {
           module_name: string | null
           solution_name: string | null
           tags: string[]
+          user_id: string
         }
         Insert: {
           chunk_index: number
@@ -34,6 +35,7 @@ export type Database = {
           module_name?: string | null
           solution_name?: string | null
           tags?: string[]
+          user_id: string
         }
         Update: {
           chunk_index?: number
@@ -44,6 +46,7 @@ export type Database = {
           module_name?: string | null
           solution_name?: string | null
           tags?: string[]
+          user_id?: string
         }
         Relationships: [
           {
@@ -71,6 +74,7 @@ export type Database = {
           tags: string[]
           title: string | null
           updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -87,6 +91,7 @@ export type Database = {
           tags?: string[]
           title?: string | null
           updated_at?: string
+          user_id: string
         }
         Update: {
           created_at?: string
@@ -103,6 +108,7 @@ export type Database = {
           tags?: string[]
           title?: string | null
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
