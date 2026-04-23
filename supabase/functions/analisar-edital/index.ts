@@ -29,8 +29,11 @@ async function extractPdfText(data: Uint8Array): Promise<string> {
   return (text as string).trim();
 }
 
-function buildMockResult(fileName: string, text: string) {
+function buildMockResult(fileName: string, text: string, knowledgeContext = "") {
   const preview = text.slice(0, 280).replace(/\s+/g, " ");
+  const knowledgePreview = knowledgeContext
+    ? ` Contexto SoftExpert considerado: ${knowledgeContext.slice(0, 420).replace(/\s+/g, " ")}`
+    : " A base privada SoftExpert não retornou trechos diretamente relacionados para este edital.";
   return {
     secao_1_objeto:
       `Contratação de solução de software para gestão integrada, conforme descrito em ${fileName}. ` +
@@ -59,11 +62,11 @@ function buildMockResult(fileName: string, text: string) {
       tipo: "tabela",
       colunas: ["Requisito", "Aderência SoftExpert", "Observação"],
       linhas: [
-        ["Gestão de processos (BPM)", "Total", "Módulo nativo"],
-        ["Gestão de riscos", "Total", "Módulo nativo"],
-        ["Gestão documental", "Total", "Módulo nativo"],
-        ["Auditoria", "Parcial", "Customização leve"],
-        ["Integração SSO", "Total", "SAML/OAuth"],
+        ["Solução SaaS", "Total", "Oferta SoftExpert em nuvem"],
+        ["Gestão estratégica de pessoas/desempenho", "Parcial", "Validar módulos e escopo funcional na base técnica"],
+        ["Integrações corporativas", "Parcial", "Confirmar conectores, APIs e SSO exigidos"],
+        ["Implantação e sustentação", "Total", "Apoiar proposta com metodologia e evidências da base"],
+        ["Segurança e conformidade", "Parcial", "Revisar requisitos específicos do edital"],
       ],
     },
     secao_7_evidencias:
@@ -81,9 +84,65 @@ function buildMockResult(fileName: string, text: string) {
       "Viável. Margem estimada saudável considerando reaproveitamento de implantações similares " +
       "e parceiros locais.",
     secao_12_go_nogo:
-      "GO — recomendação de participação. Atribuir squad de pré-venda dedicada e revisar matriz " +
-      "de aderência detalhadamente antes da proposta final.",
+      "GO CONDICIONAL — recomendação preliminar de participação, condicionada à validação técnica detalhada " +
+      "dos requisitos de gestão de desempenho, integrações, segurança e implantação." + knowledgePreview,
   };
+}
+
+function extractJsonObject(raw: string) {
+  const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return cleaned;
+  return cleaned.slice(start, end + 1);
+}
+
+async function analyzeWithLovableAi(fileName: string, editalText: string, knowledgeContext: string) {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) {
+    throw new Error("LOVABLE_API_KEY não configurada");
+  }
+
+  const editalExcerpt = editalText.slice(0, 70000);
+  const knowledgeExcerpt = knowledgeContext.slice(0, 18000);
+  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]} quando houver dados tabulares. Seja fiel ao edital, não invente capacidades: quando a base não comprovar aderência, marque como Parcial ou A validar.
+
+Arquivo: ${fileName}
+
+BASE PRIVADA SOFTEXPERT:
+${knowledgeExcerpt || "Nenhum trecho relevante encontrado na base privada."}
+
+EDITAL:
+${editalExcerpt}`;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new Error(`Lovable AI respondeu ${response.status}: ${raw.slice(0, 300)}`);
+  }
+
+  const payload = JSON.parse(raw);
+  const content = payload?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("Resposta da IA sem conteúdo analisável");
+  }
+
+  return JSON.parse(extractJsonObject(content));
 }
 
 function buildSearchQuery(text: string) {
