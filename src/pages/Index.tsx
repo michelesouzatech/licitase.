@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Upload, FileText, Download, CheckCircle2, History as HistoryIcon, BookOpen } from "lucide-react";
+import { Loader2, Upload, FileText, Download, CheckCircle2, History as HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -200,22 +200,12 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <Link
-                to="/conhecimento"
-                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
-              >
-                <BookOpen className="h-4 w-4" />
-                Base
-              </Link>
-              <Link
                 to="/historico"
                 className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
               >
                 <HistoryIcon className="h-4 w-4" />
                 Histórico
               </Link>
-              <span className="hidden text-xs font-semibold text-primary-foreground/75 md:inline">
-                Conhecimento global SoftExpert
-              </span>
             </div>
           </div>
 
