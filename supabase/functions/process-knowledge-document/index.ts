@@ -13,7 +13,6 @@ const requestSchema = z.object({
   fileBase64: z.string().min(1),
   fileName: z.string().min(1),
   fileType: z.string().min(1),
-  storagePath: z.string().min(1),
   title: z.string().nullable().optional(),
   solutionName: z.string().nullable().optional(),
   moduleName: z.string().nullable().optional(),
@@ -102,13 +101,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!authHeader || !supabaseUrl || !supabaseAnonKey) {
-      return new Response(JSON.stringify({ error: "Autenticação obrigatória" }), {
-        status: 401,
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: "Configuração do backend incompleta" }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -123,29 +121,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Sessão inválida" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { fileBase64, fileName, fileType, storagePath, title, solutionName, moduleName, tags, fileSizeBytes } = parsed.data;
+    const { fileBase64, fileName, fileType, title, solutionName, moduleName, tags, fileSizeBytes } = parsed.data;
     const bytes = base64ToUint8Array(fileBase64);
     const extractedText = normalizeWhitespace(await extractFileText(fileType, bytes));
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const storagePath = `global/${Date.now()}-${safeName}`;
 
     if (!extractedText) {
       return new Response(JSON.stringify({ error: "Não foi possível extrair texto do arquivo enviado" }), {
@@ -159,7 +141,7 @@ Deno.serve(async (req) => {
     const { data: insertedDoc, error: insertDocError } = await supabase
       .from("knowledge_documents")
       .insert({
-        user_id: user.id,
+        user_id: null,
         file_name: fileName,
         file_type: fileType.toLowerCase(),
         title: title ?? null,
@@ -183,7 +165,7 @@ Deno.serve(async (req) => {
     if (chunks.length > 0) {
       const { error: chunkError } = await supabase.from("knowledge_chunks").insert(
         chunks.map((content, index) => ({
-          user_id: user.id,
+          user_id: null,
           document_id: insertedDoc.id,
           chunk_index: index,
           content,
