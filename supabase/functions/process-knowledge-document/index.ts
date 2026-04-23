@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao processar documento";
-    console.error("process-knowledge-document error:", message);
+    console.error("process-knowledge-document error:", error);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
