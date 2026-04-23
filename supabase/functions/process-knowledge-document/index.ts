@@ -95,6 +95,11 @@ function buildSummary(text: string) {
   return text.slice(0, 500).replace(/\s+/g, " ").trim();
 }
 
+function base64ToArrayBuffer(base64: string) {
+  const bytes = base64ToUint8Array(base64);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -138,6 +143,22 @@ Deno.serve(async (req) => {
 
     const summary = buildSummary(extractedText);
 
+    const { error: storageError } = await supabase.storage
+      .from("knowledge-base")
+      .upload(storagePath, base64ToArrayBuffer(fileBase64), {
+        upsert: false,
+        contentType:
+          fileType.toLowerCase() === "pdf"
+            ? "application/pdf"
+            : fileType.toLowerCase() === "docx"
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "text/plain",
+      });
+
+    if (storageError) {
+      throw storageError;
+    }
+
     const { data: insertedDoc, error: insertDocError } = await supabase
       .from("knowledge_documents")
       .insert({
@@ -176,6 +197,7 @@ Deno.serve(async (req) => {
       );
 
       if (chunkError) {
+        await supabase.storage.from("knowledge-base").remove([storagePath]);
         await supabase.from("knowledge_documents").delete().eq("id", insertedDoc.id);
         throw chunkError;
       }
