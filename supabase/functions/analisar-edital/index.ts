@@ -155,19 +155,34 @@ function buildSearchQuery(text: string) {
   return Array.from(new Set(words)).slice(0, 12).join(" ");
 }
 
+class StagedError extends Error {
+  stage: "kb_query" | "storage_download" | "context_build";
+  details?: unknown;
+
+  constructor(stage: StagedError["stage"], message: string, details?: unknown) {
+    super(message);
+    this.name = "StagedError";
+    this.stage = stage;
+    this.details = details;
+  }
+}
+
 async function loadKnowledgeContext() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Configuração da base de conhecimento indisponível");
+    throw new StagedError("kb_query", "Configuração da base de conhecimento indisponível");
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  console.log("Consultando public.kb_documents para tipo=knowledge_base e ativo=true");
+
   const { data: kbDocument, error: kbDocumentError } = await supabase
+    .schema("public")
     .from("kb_documents")
-    .select("id,bucket_name,file_path,conteudo_extraido")
+    .select("id,tipo,ativo,bucket_name,file_path,file_name,conteudo_extraido")
     .eq("tipo", "knowledge_base")
     .eq("ativo", true)
     .order("created_at", { ascending: false })
@@ -176,30 +191,50 @@ async function loadKnowledgeContext() {
 
   if (kbDocumentError) {
     console.error("Erro ao buscar documento da base SoftExpert:", kbDocumentError);
-    throw new Error("Não foi possível consultar o documento da base de conhecimento SoftExpert");
+    throw new StagedError(
+      "kb_query",
+      "Não foi possível consultar o documento da base de conhecimento SoftExpert",
+      kbDocumentError,
+    );
   }
+
+  console.log("Resultado da query em public.kb_documents:", kbDocument);
 
   if (!kbDocument) {
     console.error("Documento da base SoftExpert não encontrado");
-    throw new Error("Documento ativo da base de conhecimento SoftExpert não encontrado");
+    throw new StagedError("kb_query", "Documento ativo da base de conhecimento SoftExpert não encontrado");
   }
+
+  const bucketName = String(kbDocument.bucket_name ?? "").trim();
+  const filePath = String(kbDocument.file_path ?? "").trim();
 
   console.log("Documento da base SoftExpert encontrado:", {
     id: kbDocument.id,
-    bucket: kbDocument.bucket_name,
-    path: kbDocument.file_path,
+    bucket_name: bucketName,
+    file_path: filePath,
+    file_name: kbDocument.file_name,
   });
+  console.log("bucket_name encontrado:", bucketName);
+  console.log("file_path encontrado:", filePath);
+
+  if (!bucketName || !filePath) {
+    throw new StagedError("kb_query", "Documento da base SoftExpert sem bucket_name ou file_path");
+  }
 
   let knowledgeContext = String(kbDocument.conteudo_extraido ?? "").trim();
 
   if (!knowledgeContext) {
     const { data: fileData, error: fileError } = await supabase.storage
-      .from(kbDocument.bucket_name || "conhecimento-basico")
-      .download(kbDocument.file_path || "catalogo-solucoes-softexpert.md");
+      .from(bucketName)
+      .download(filePath);
 
     if (fileError || !fileData) {
       console.error("Erro ao ler arquivo da base SoftExpert no Storage:", fileError);
-      throw new Error("Base de conhecimento SoftExpert não foi carregada: falha ao ler o arquivo no Storage");
+      throw new StagedError(
+        "storage_download",
+        "Base de conhecimento SoftExpert não foi carregada: falha ao ler o arquivo no Storage",
+        fileError,
+      );
     }
 
     knowledgeContext = (await fileData.text()).trim();
