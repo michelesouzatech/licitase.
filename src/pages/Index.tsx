@@ -18,7 +18,7 @@ type Resultado = {
   secao_1_objeto: string;
   secao_2_resumo_executivo: string;
   secao_3_cronograma: string | TabelaSecao;
-  secao_4_habilitacao: string;
+  secao_4_habilitacao: string | TabelaSecao;
   secao_5_atestados: string;
   secao_6_aderencia_matriz: string | TabelaSecao;
   secao_7_evidencias: string;
@@ -293,7 +293,7 @@ const Index = () => {
                 <h2 className="text-xl font-bold text-foreground">Resultado da análise</h2>
               </div>
               <Button onClick={exportarPDF} variant="outline">
-                <Download className="mr-2 h-4 w-4" /> Exportar para PDF
+                <Download className="mr-2 h-4 w-4" /> Baixar PDF do resultado
               </Button>
             </div>
 
