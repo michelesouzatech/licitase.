@@ -43,17 +43,20 @@ function buildMockResult(fileName: string, text: string, knowledgeContext = "") 
       "Não foi possível gerar uma análise automatizada confiável neste momento. O texto do edital foi extraído, mas a etapa de IA não concluiu com sucesso.",
     secao_3_cronograma: {
       tipo: "tabela",
-      colunas: ["Etapa", "Prazo"],
+      colunas: ["Etapa", "Prazo/Data", "Data limite calculada", "Onde ocorre", "Fonte no edital"],
       linhas: [
-        ["Publicação do edital", "D+0"],
-        ["Impugnações", "D+3"],
-        ["Sessão pública", "D+10"],
-        ["Homologação", "D+25"],
-        ["Assinatura do contrato", "D+35"],
+        ["Publicação do edital", "A validar", "A validar", "A validar", "A validar no edital"],
+        ["Envio de propostas", "A validar", "A validar", "Portal indicado no edital", "A validar no edital"],
+        ["Pedido de esclarecimentos", "A validar", "A validar", "Portal indicado no edital", "A validar no edital"],
+        ["Impugnação", "A validar", "A validar", "Portal indicado no edital", "A validar no edital"],
+        ["Sessão pública/disputa", "A validar", "A validar", "Portal indicado no edital", "A validar no edital"],
       ],
     },
-    secao_4_habilitacao:
-      "A validar diretamente no edital extraído. O fallback não deve inferir requisitos de habilitação.",
+    secao_4_habilitacao: {
+      tipo: "tabela",
+      colunas: ["Item de habilitação", "Documento/evidência exigida", "Onde buscar", "Site/portal/órgão", "Observações"],
+      linhas: [["A validar", "A validar diretamente no edital extraído", "Edital e anexos", "Portal indicado no edital", "O fallback não deve inferir requisitos de habilitação."]],
+    },
     secao_5_atestados:
       "A validar diretamente no edital extraído. O fallback não deve inferir exigências de atestados.",
     secao_6_aderencia_matriz: {
@@ -96,7 +99,8 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
 
   const editalExcerpt = editalText.slice(0, 70000);
   const knowledgeExcerpt = knowledgeContext.slice(0, 18000);
-  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]} quando houver dados tabulares.
+  const dataConsulta = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
 
 REGRAS CRÍTICAS DE FIDELIDADE:
 - Não invente funcionalidades, módulos, integrações, certificações, cases, prazos, diferenciais ou aderências.
@@ -104,10 +108,14 @@ REGRAS CRÍTICAS DE FIDELIDADE:
 - Quando houver indício incompleto, marque "Parcial" e explique exatamente o que falta comprovar.
 - Quando a base não comprovar, marque "Não evidenciado" ou "A validar".
 - Em cada observação da matriz de aderência, cite de forma resumida qual trecho da base sustentou a conclusão; se não houver trecho, diga "sem evidência na base".
+- Na secao_7_evidencias, cite apenas evidências e trechos úteis; NÃO informe o nome do arquivo, documento, material, catálogo ou base de onde a evidência foi extraída.
+- Na secao_3_cronograma, liste TODOS os prazos encontrados no edital e os prazos típicos/expressos do pregão: envio/recebimento de propostas, pedidos de esclarecimento, impugnação, resposta a esclarecimentos/impugnações, abertura da sessão pública, disputa/lances, julgamento, recurso/contrarrazões, adjudicação, homologação e assinatura do contrato quando aparecerem. Use colunas: Etapa, Prazo/Data, Data limite calculada, Onde ocorre, Fonte no edital. Para prazos do pregão sem data absoluta, calcule a data exata de expiração a partir da data da consulta (${dataConsulta}) e explique a base de cálculo. Informe também em qual site, portal ou sistema ocorrerá a disputa.
+- Na secao_4_habilitacao, apresente uma tabela com os itens de habilitação em linhas. Use colunas: Item de habilitação, Documento/evidência exigida, Onde buscar, Site/portal/órgão, Observações. Em "Onde buscar", indique se deve ser buscado em SICAF, portal de compras, certidões federais/estaduais/municipais, conselho profissional, junta comercial, balanço/contabilidade, edital/anexos ou outro local citado no edital.
 - Se a BASE PRIVADA SOFTEXPERT estiver vazia ou genérica, deixe claro que a aderência não pôde ser comprovada.
 - Não use conhecimento externo sobre a SoftExpert que não esteja na base fornecida.
 
 Arquivo: ${fileName}
+Data da consulta: ${dataConsulta}
 
 BASE PRIVADA SOFTEXPERT:
 ${knowledgeExcerpt || "Nenhum trecho relevante encontrado na base privada."}
