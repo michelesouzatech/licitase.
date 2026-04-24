@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      kb_documents: {
+        Row: {
+          ativo: boolean
+          bucket_name: string
+          conteudo_extraido: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          tipo: string
+          titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bucket_name: string
+          conteudo_extraido?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          tipo: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bucket_name?: string
+          conteudo_extraido?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          tipo?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_chunks: {
         Row: {
           chunk_index: number
