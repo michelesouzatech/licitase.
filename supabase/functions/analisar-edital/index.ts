@@ -254,7 +254,7 @@ async function loadKnowledgeContext() {
 
   if (!knowledgeContext) {
     console.error("Base SoftExpert carregada, porém sem conteúdo textual");
-    throw new Error("Base de conhecimento SoftExpert foi carregada, mas está vazia");
+    throw new StagedError("context_build", "Base de conhecimento SoftExpert foi carregada, mas está vazia");
   }
 
   console.log("Tamanho do conteúdo da base SoftExpert carregado:", knowledgeContext.length);
@@ -309,9 +309,11 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Erro desconhecido";
-    console.error("analisar-edital error:", msg);
+    const stage = error instanceof StagedError ? error.stage : "unknown";
+    const details = error instanceof StagedError ? error.details : undefined;
+    console.error("analisar-edital error:", { stage, message: msg, details });
     return new Response(
-      JSON.stringify({ error: msg }),
+      JSON.stringify({ error: msg, stage, details }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
