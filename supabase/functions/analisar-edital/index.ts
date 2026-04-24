@@ -155,45 +155,79 @@ function buildSearchQuery(text: string) {
   return Array.from(new Set(words)).slice(0, 12).join(" ");
 }
 
-async function loadKnowledgeContext(req: Request, editalText: string) {
+async function loadKnowledgeContext() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!supabaseUrl || !serviceRoleKey || !editalText.trim()) {
-    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Configuração da base de conhecimento indisponível");
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const searchText = buildSearchQuery(editalText);
+  const { data: kbDocument, error: kbDocumentError } = await supabase
+    .from("kb_documents")
+    .select("id,bucket_name,file_path,conteudo_extraido")
+    .eq("tipo", "knowledge_base")
+    .eq("ativo", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (!searchText) {
-    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  if (kbDocumentError) {
+    console.error("Erro ao buscar documento da base SoftExpert:", kbDocumentError);
+    throw new Error("Não foi possível consultar o documento da base de conhecimento SoftExpert");
   }
 
-  const { data, error } = await supabase.rpc("search_knowledge_chunks", {
-    search_text: searchText,
-    match_count: 6,
-    filter_solution: null,
-    filter_module: null,
+  if (!kbDocument) {
+    console.error("Documento da base SoftExpert não encontrado");
+    throw new Error("Documento ativo da base de conhecimento SoftExpert não encontrado");
+  }
+
+  console.log("Documento da base SoftExpert encontrado:", {
+    id: kbDocument.id,
+    bucket: kbDocument.bucket_name,
+    path: kbDocument.file_path,
   });
 
-  if (error || !Array.isArray(data) || data.length === 0) {
-    return { knowledgeContext: "", matchedChunks: [] as string[] };
+  let knowledgeContext = String(kbDocument.conteudo_extraido ?? "").trim();
+
+  if (!knowledgeContext) {
+    const { data: fileData, error: fileError } = await supabase.storage
+      .from(kbDocument.bucket_name || "conhecimento-basico")
+      .download(kbDocument.file_path || "catalogo-solucoes-softexpert.md");
+
+    if (fileError || !fileData) {
+      console.error("Erro ao ler arquivo da base SoftExpert no Storage:", fileError);
+      throw new Error("Base de conhecimento SoftExpert não foi carregada: falha ao ler o arquivo no Storage");
+    }
+
+    knowledgeContext = (await fileData.text()).trim();
+    console.log("Arquivo da base SoftExpert lido com sucesso");
+
+    if (knowledgeContext) {
+      const { error: updateError } = await supabase
+        .from("kb_documents")
+        .update({ conteudo_extraido: knowledgeContext })
+        .eq("id", kbDocument.id);
+
+      if (updateError) {
+        console.warn("Não foi possível persistir conteudo_extraido da base SoftExpert:", updateError);
+      }
+    }
   }
 
-  const matchedChunks = data
-    .map((item: any) => {
-      const title = item.title ?? item.file_name ?? "Documento";
-      const solution = item.solution_name ? ` | Solução: ${item.solution_name}` : "";
-      const module = item.module_name ? ` | Módulo: ${item.module_name}` : "";
-      return `- ${title}${solution}${module}\n${String(item.content ?? "").trim()}`;
-    })
-    .filter(Boolean);
+  if (!knowledgeContext) {
+    console.error("Base SoftExpert carregada, porém sem conteúdo textual");
+    throw new Error("Base de conhecimento SoftExpert foi carregada, mas está vazia");
+  }
+
+  console.log("Tamanho do conteúdo da base SoftExpert carregado:", knowledgeContext.length);
+  console.log("Contexto SoftExpert enviado para IA não vazio:", knowledgeContext.length > 0);
 
   return {
-    knowledgeContext: matchedChunks.join("\n\n"),
-    matchedChunks,
+    knowledgeContext,
+    matchedChunks: [knowledgeContext],
   };
 }
 
@@ -224,7 +258,7 @@ Deno.serve(async (req) => {
       editalText = "";
     }
 
-    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(req, editalText);
+    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext();
 
     let resultado: unknown;
     try {
