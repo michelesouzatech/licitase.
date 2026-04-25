@@ -332,7 +332,16 @@ const Index = () => {
         </Card>
 
         {/* Resultado */}
-        {resultado && (
+        {resultado && (() => {
+          const aderencia = calcularScoreAderencia(resultado);
+          const scoreColor = aderencia
+            ? aderencia.score >= 70
+              ? "text-success"
+              : aderencia.score >= 40
+                ? "text-accent"
+                : "text-destructive"
+            : "";
+          return (
           <section className="mt-10 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-success">
@@ -343,6 +352,59 @@ const Index = () => {
                 <Download className="mr-2 h-4 w-4" /> Baixar PDF do resultado
               </Button>
             </div>
+
+            <Card className="p-4 md:p-5 border-l-4 border-l-accent bg-accent/5">
+              <p className="text-sm md:text-[15px] text-foreground/90 leading-relaxed">
+                <span className="font-bold">⚠️ CONFIDENCIALIDADE E SEGURANÇA:</span>{" "}
+                Este relatório foi gerado por Inteligência Artificial para apoio à decisão.
+                Os dados extraídos devem, obrigatoriamente, ser validados com as áreas técnicas
+                e comerciais da SoftExpert. O processamento desta análise respeita as diretrizes
+                de privacidade e uso ético de IA da companhia.
+              </p>
+            </Card>
+
+            {aderencia && (
+              <Card className="p-5 md:p-6 shadow-[var(--shadow-card)]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h3 className="text-base md:text-lg font-bold text-primary">Score de Aderência</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Calculado a partir da matriz de requisitos (seção 6).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className={`text-4xl md:text-5xl font-extrabold tracking-tight ${scoreColor}`}>
+                        {aderencia.score}%
+                      </div>
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1">
+                        Aderência geral
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                      <div>
+                        <div className="font-bold text-success text-lg">{aderencia.total_total}</div>
+                        <div className="text-muted-foreground">Total</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-accent text-lg">{aderencia.total_parcial}</div>
+                        <div className="text-muted-foreground">Parcial</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-destructive text-lg">{aderencia.total_nao}</div>
+                        <div className="text-muted-foreground">Não</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 h-2 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={`h-full ${aderencia.score >= 70 ? "bg-success" : aderencia.score >= 40 ? "bg-accent" : "bg-destructive"}`}
+                    style={{ width: `${aderencia.score}%` }}
+                  />
+                </div>
+              </Card>
+            )}
 
             <div className="grid gap-4">
               {SECTIONS.map(({ key, titulo }) => {
