@@ -52,15 +52,12 @@ const Historico = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("licitacoes")
-      .select("id, pdf_name, data_consulta, ganhou, observacao, resultado_json")
-      .order("data_consulta", { ascending: false });
+    const { data, error } = await supabase.functions.invoke("listar-licitacoes", { body: {} });
     if (error) {
       toast.error("Erro ao carregar histórico");
       console.error(error);
     } else {
-      setItems((data ?? []) as Licitacao[]);
+      setItems(((data as any)?.items ?? []) as Licitacao[]);
     }
     setLoading(false);
   };

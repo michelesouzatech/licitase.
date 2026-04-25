@@ -103,30 +103,32 @@ const Index = () => {
       toast.error("Selecione um PDF antes de analisar");
       return;
     }
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("PDF muito grande (limite 6MB)");
+      return;
+    }
     setLoading(true);
     try {
-      // Upload to storage to avoid request body size limits
-      const ts = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `uploads/${ts}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("editais")
-        .upload(filePath, file, { contentType: "application/pdf", upsert: false });
-      if (uploadError) throw uploadError;
+      // Convert PDF to base64 and send directly to the edge function.
+      // The function persists the result server-side (service role).
+      const buf = await file.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunk)) as unknown as number[],
+        );
+      }
+      const fileBase64 = btoa(binary);
 
       const { data, error } = await supabase.functions.invoke("analisar-edital", {
-        body: { filePath, fileName: file.name },
+        body: { fileBase64, fileName: file.name },
       });
       if (error) throw error;
-      const { editalText, resultado: r } = data as { editalText: string; resultado: Resultado };
+      const { resultado: r } = data as { resultado: Resultado };
       setResultado(r);
-
-      const { error: insertError } = await supabase.from("licitacoes").insert({
-        pdf_name: file.name,
-        edital_text: editalText,
-        resultado_json: r as any,
-      });
-      if (insertError) console.warn("Erro ao salvar histórico:", insertError);
 
       toast.success("Análise concluída e salva no histórico");
     } catch (e) {
