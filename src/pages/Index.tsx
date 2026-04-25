@@ -191,6 +191,7 @@ const Index = () => {
     }
 
     doc.save(`${safe}-analise-softexpert.pdf`);
+  };
 
   const dragHandlers = useMemo(
     () => ({
