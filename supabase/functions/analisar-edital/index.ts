@@ -12,9 +12,11 @@ import { z } from "npm:zod@3.25.76";
 import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 const requestSchema = z.object({
-  fileBase64: z.string().min(1),
+  fileBase64: z.string().min(1).optional(),
+  filePath: z.string().min(1).optional(),
+  bucket: z.string().min(1).optional(),
   fileName: z.string().min(1),
-});
+}).refine((d) => d.fileBase64 || d.filePath, { message: "fileBase64 ou filePath é obrigatório" });
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
@@ -291,12 +293,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { fileBase64, fileName } = parsed.data;
+    const { fileBase64, filePath, bucket, fileName } = parsed.data;
 
     let editalText = "";
     try {
-      const bytes = base64ToUint8Array(fileBase64);
-      editalText = await extractPdfText(bytes);
+      let bytes: Uint8Array | null = null;
+      if (filePath) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const sb = createClient(supabaseUrl, serviceRoleKey);
+        const bucketName = bucket || "editais";
+        const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
+        if (dlError || !fileData) {
+          throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+        }
+        bytes = new Uint8Array(await fileData.arrayBuffer());
+      } else if (fileBase64) {
+        bytes = base64ToUint8Array(fileBase64);
+      }
+      if (bytes) editalText = await extractPdfText(bytes);
     } catch (e) {
       console.error("Erro ao extrair PDF:", e);
       editalText = "";

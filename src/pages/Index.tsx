@@ -105,9 +105,17 @@ const Index = () => {
     }
     setLoading(true);
     try {
-      const fileBase64 = await fileToBase64(file);
+      // Upload to storage to avoid request body size limits
+      const ts = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `uploads/${ts}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("editais")
+        .upload(filePath, file, { contentType: "application/pdf", upsert: false });
+      if (uploadError) throw uploadError;
+
       const { data, error } = await supabase.functions.invoke("analisar-edital", {
-        body: { fileBase64, fileName: file.name },
+        body: { filePath, fileName: file.name },
       });
       if (error) throw error;
       const { editalText, resultado: r } = data as { editalText: string; resultado: Resultado };
