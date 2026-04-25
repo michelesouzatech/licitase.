@@ -2,3 +2,9 @@ project_id = "dvgdrctdnfdrtmfkhzgb"
 
 [functions.analisar-edital]
 verify_jwt = false
+
+[functions.listar-licitacoes]
+verify_jwt = false
+
+[functions.atualizar-licitacao]
+verify_jwt = false
