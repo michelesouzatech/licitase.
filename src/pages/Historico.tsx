@@ -52,15 +52,12 @@ const Historico = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("licitacoes")
-      .select("id, pdf_name, data_consulta, ganhou, observacao, resultado_json")
-      .order("data_consulta", { ascending: false });
+    const { data, error } = await supabase.functions.invoke("listar-licitacoes", { body: {} });
     if (error) {
       toast.error("Erro ao carregar histórico");
       console.error(error);
     } else {
-      setItems((data ?? []) as Licitacao[]);
+      setItems(((data as any)?.items ?? []) as Licitacao[]);
     }
     setLoading(false);
   };
@@ -115,7 +112,9 @@ const Historico = () => {
     setSavingId(id);
     const previous = items;
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ganhou: value } : it)));
-    const { error } = await supabase.from("licitacoes").update({ ganhou: value }).eq("id", id);
+    const { error } = await supabase.functions.invoke("atualizar-licitacao", {
+      body: { id, ganhou: value },
+    });
     if (error) {
       toast.error("Erro ao atualizar status");
       setItems(previous);
@@ -127,10 +126,9 @@ const Historico = () => {
 
   const updateObservacao = async (id: string, value: string) => {
     setSavingId(id);
-    const { error } = await supabase
-      .from("licitacoes")
-      .update({ observacao: value })
-      .eq("id", id);
+    const { error } = await supabase.functions.invoke("atualizar-licitacao", {
+      body: { id, observacao: value },
+    });
     if (error) toast.error("Erro ao salvar observação");
     else toast.success("Observação salva");
     setSavingId(null);

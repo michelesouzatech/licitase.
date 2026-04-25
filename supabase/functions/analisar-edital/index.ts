@@ -11,11 +11,14 @@ import { z } from "npm:zod@3.25.76";
 // @ts-ignore - npm specifier in Deno
 import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
+// Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
+const MAX_BASE64_LEN = 8_500_000;
+
 const requestSchema = z.object({
-  fileBase64: z.string().min(1).optional(),
+  fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
   filePath: z.string().min(1).optional(),
   bucket: z.string().min(1).optional(),
-  fileName: z.string().min(1),
+  fileName: z.string().min(1).max(300),
 }).refine((d) => d.fileBase64 || d.filePath, { message: "fileBase64 ou filePath é obrigatório" });
 
 function base64ToUint8Array(b64: string): Uint8Array {
@@ -319,7 +322,7 @@ Deno.serve(async (req) => {
 
     const { knowledgeContext, matchedChunks } = await loadKnowledgeContext();
 
-    let resultado: unknown;
+    let resultado: any;
     try {
       resultado = await analyzeWithLovableAi(fileName, editalText, knowledgeContext);
     } catch (e) {
@@ -327,8 +330,31 @@ Deno.serve(async (req) => {
       resultado = buildMockResult(fileName, editalText, knowledgeContext);
     }
 
+    // Persist result server-side (service role bypasses RLS)
+    let licitacaoId: string | null = null;
+    try {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: inserted, error: insError } = await sb
+        .from("licitacoes")
+        .insert({ pdf_name: fileName, edital_text: editalText, resultado_json: resultado })
+        .select("id")
+        .single();
+      if (insError) console.warn("Falha ao salvar licitacao:", insError);
+      else licitacaoId = inserted?.id ?? null;
+    } catch (e) {
+      console.warn("Erro ao persistir licitacao:", e);
+    }
+
     return new Response(
-      JSON.stringify({ editalText, resultado, knowledgeContext, matchedChunksCount: matchedChunks.length }),
+      JSON.stringify({
+        editalText,
+        resultado,
+        licitacaoId,
+        matchedChunksCount: matchedChunks.length,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
