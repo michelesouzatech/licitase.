@@ -48,6 +48,27 @@ function isTabela(v: unknown): v is TabelaSecao {
   return !!v && typeof v === "object" && (v as any).tipo === "tabela";
 }
 
+function calcularScoreAderencia(
+  resultado: Resultado,
+): { score: number; total: number; total_total: number; total_parcial: number; total_nao: number } | null {
+  const matriz = resultado.secao_6_aderencia_matriz;
+  if (!isTabela(matriz) || !matriz.linhas?.length) return null;
+  const colIdx = matriz.colunas.findIndex((c) => /aderência|aderencia/i.test(c));
+  const idx = colIdx >= 0 ? colIdx : 1;
+  let total = 0, parcial = 0, nao = 0;
+  for (const row of matriz.linhas) {
+    const val = String(row[idx] ?? "").toLowerCase().trim();
+    if (!val) continue;
+    if (/^total|^plena|^atend|^sim/.test(val)) total++;
+    else if (/parcial/.test(val)) parcial++;
+    else nao++;
+  }
+  const totalLinhas = total + parcial + nao;
+  if (totalLinhas === 0) return null;
+  const score = Math.round(((total * 1 + parcial * 0.5) / totalLinhas) * 100);
+  return { score, total: totalLinhas, total_total: total, total_parcial: parcial, total_nao: nao };
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
