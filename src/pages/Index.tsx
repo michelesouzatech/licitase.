@@ -147,6 +147,44 @@ const Index = () => {
     y = 90;
     doc.setTextColor(20, 30, 50);
 
+    // Aviso de confidencialidade
+    doc.setFillColor(255, 247, 230);
+    const avisoLines = doc.splitTextToSize(
+      "CONFIDENCIALIDADE E SEGURANCA: Este relatorio foi gerado por Inteligencia Artificial para apoio a decisao. Os dados extraidos devem, obrigatoriamente, ser validados com as areas tecnicas e comerciais da SoftExpert. O processamento desta analise respeita as diretrizes de privacidade e uso etico de IA da companhia.",
+      pageW - margin * 2 - 12,
+    );
+    const avisoH = avisoLines.length * 11 + 14;
+    doc.rect(margin, y, pageW - margin * 2, avisoH, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 60, 0);
+    doc.text(avisoLines, margin + 6, y + 12);
+    y += avisoH + 14;
+    doc.setTextColor(20, 30, 50);
+
+    // Score de aderência
+    const aderencia = calcularScoreAderencia(resultado);
+    if (aderencia) {
+      doc.setFillColor(245, 248, 252);
+      doc.rect(margin, y, pageW - margin * 2, 50, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(20, 45, 90);
+      doc.text("Score de Aderência", margin + 10, y + 18);
+      doc.setFontSize(22);
+      doc.text(`${aderencia.score}%`, pageW - margin - 10, y + 28, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(80, 90, 110);
+      doc.text(
+        `Total: ${aderencia.total_total}  ·  Parcial: ${aderencia.total_parcial}  ·  Não evidenciado: ${aderencia.total_nao}  (base: ${aderencia.total} requisitos)`,
+        margin + 10,
+        y + 38,
+      );
+      y += 64;
+      doc.setTextColor(20, 30, 50);
+    }
+
     SECTIONS.forEach(({ key, titulo }) => {
       const value = resultado[key];
       if (y > pageH - 80) {
