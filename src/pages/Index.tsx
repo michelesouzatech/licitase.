@@ -164,8 +164,33 @@ const Index = () => {
     });
 
     const safe = (file?.name ?? "relatorio").replace(/\.pdf$/i, "");
+
+    // Marca d'água diagonal em todas as páginas
+    const totalPages = doc.getNumberOfPages();
+    const watermarkLines = [
+      "Desenvolvido por Michele Souza Cezar · Sales Ops",
+      "SoftExpert Software S.A.",
+      `© ${new Date().getFullYear()} LicitaExpert`,
+    ];
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      // @ts-ignore - GState exists at runtime in jsPDF
+      const gs = (doc as any).GState ? new (doc as any).GState({ opacity: 0.12 }) : null;
+      // @ts-ignore
+      if (gs) (doc as any).setGState(gs);
+      doc.setTextColor(20, 45, 90);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(28);
+      doc.text(watermarkLines, pageW / 2, pageH / 2, {
+        align: "center",
+        angle: 30,
+      });
+      // restore opacity for subsequent pages drawing
+      // @ts-ignore
+      if ((doc as any).GState) (doc as any).setGState(new (doc as any).GState({ opacity: 1 }));
+    }
+
     doc.save(`${safe}-analise-softexpert.pdf`);
-  };
 
   const dragHandlers = useMemo(
     () => ({
