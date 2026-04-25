@@ -48,6 +48,27 @@ function isTabela(v: unknown): v is TabelaSecao {
   return !!v && typeof v === "object" && (v as any).tipo === "tabela";
 }
 
+function calcularScoreAderencia(
+  resultado: Resultado,
+): { score: number; total: number; total_total: number; total_parcial: number; total_nao: number } | null {
+  const matriz = resultado.secao_6_aderencia_matriz;
+  if (!isTabela(matriz) || !matriz.linhas?.length) return null;
+  const colIdx = matriz.colunas.findIndex((c) => /aderência|aderencia/i.test(c));
+  const idx = colIdx >= 0 ? colIdx : 1;
+  let total = 0, parcial = 0, nao = 0;
+  for (const row of matriz.linhas) {
+    const val = String(row[idx] ?? "").toLowerCase().trim();
+    if (!val) continue;
+    if (/^total|^plena|^atend|^sim/.test(val)) total++;
+    else if (/parcial/.test(val)) parcial++;
+    else nao++;
+  }
+  const totalLinhas = total + parcial + nao;
+  if (totalLinhas === 0) return null;
+  const score = Math.round(((total * 1 + parcial * 0.5) / totalLinhas) * 100);
+  return { score, total: totalLinhas, total_total: total, total_parcial: parcial, total_nao: nao };
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -125,6 +146,44 @@ const Index = () => {
     doc.text(file?.name ?? "", pageW - margin, 38, { align: "right" });
     y = 90;
     doc.setTextColor(20, 30, 50);
+
+    // Aviso de confidencialidade
+    doc.setFillColor(255, 247, 230);
+    const avisoLines = doc.splitTextToSize(
+      "CONFIDENCIALIDADE E SEGURANCA: Este relatorio foi gerado por Inteligencia Artificial para apoio a decisao. Os dados extraidos devem, obrigatoriamente, ser validados com as areas tecnicas e comerciais da SoftExpert. O processamento desta analise respeita as diretrizes de privacidade e uso etico de IA da companhia.",
+      pageW - margin * 2 - 12,
+    );
+    const avisoH = avisoLines.length * 11 + 14;
+    doc.rect(margin, y, pageW - margin * 2, avisoH, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 60, 0);
+    doc.text(avisoLines, margin + 6, y + 12);
+    y += avisoH + 14;
+    doc.setTextColor(20, 30, 50);
+
+    // Score de aderência
+    const aderencia = calcularScoreAderencia(resultado);
+    if (aderencia) {
+      doc.setFillColor(245, 248, 252);
+      doc.rect(margin, y, pageW - margin * 2, 50, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(20, 45, 90);
+      doc.text("Score de Aderência", margin + 10, y + 18);
+      doc.setFontSize(22);
+      doc.text(`${aderencia.score}%`, pageW - margin - 10, y + 28, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(80, 90, 110);
+      doc.text(
+        `Total: ${aderencia.total_total}  ·  Parcial: ${aderencia.total_parcial}  ·  Não evidenciado: ${aderencia.total_nao}  (base: ${aderencia.total} requisitos)`,
+        margin + 10,
+        y + 38,
+      );
+      y += 64;
+      doc.setTextColor(20, 30, 50);
+    }
 
     SECTIONS.forEach(({ key, titulo }) => {
       const value = resultado[key];
@@ -311,7 +370,16 @@ const Index = () => {
         </Card>
 
         {/* Resultado */}
-        {resultado && (
+        {resultado && (() => {
+          const aderencia = calcularScoreAderencia(resultado);
+          const scoreColor = aderencia
+            ? aderencia.score >= 70
+              ? "text-success"
+              : aderencia.score >= 40
+                ? "text-accent"
+                : "text-destructive"
+            : "";
+          return (
           <section className="mt-10 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-success">
@@ -322,6 +390,59 @@ const Index = () => {
                 <Download className="mr-2 h-4 w-4" /> Baixar PDF do resultado
               </Button>
             </div>
+
+            <Card className="p-4 md:p-5 border-l-4 border-l-accent bg-accent/5">
+              <p className="text-sm md:text-[15px] text-foreground/90 leading-relaxed">
+                <span className="font-bold">⚠️ CONFIDENCIALIDADE E SEGURANÇA:</span>{" "}
+                Este relatório foi gerado por Inteligência Artificial para apoio à decisão.
+                Os dados extraídos devem, obrigatoriamente, ser validados com as áreas técnicas
+                e comerciais da SoftExpert. O processamento desta análise respeita as diretrizes
+                de privacidade e uso ético de IA da companhia.
+              </p>
+            </Card>
+
+            {aderencia && (
+              <Card className="p-5 md:p-6 shadow-[var(--shadow-card)]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h3 className="text-base md:text-lg font-bold text-primary">Score de Aderência</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Calculado a partir da matriz de requisitos (seção 6).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className={`text-4xl md:text-5xl font-extrabold tracking-tight ${scoreColor}`}>
+                        {aderencia.score}%
+                      </div>
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1">
+                        Aderência geral
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                      <div>
+                        <div className="font-bold text-success text-lg">{aderencia.total_total}</div>
+                        <div className="text-muted-foreground">Total</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-accent text-lg">{aderencia.total_parcial}</div>
+                        <div className="text-muted-foreground">Parcial</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-destructive text-lg">{aderencia.total_nao}</div>
+                        <div className="text-muted-foreground">Não</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 h-2 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={`h-full ${aderencia.score >= 70 ? "bg-success" : aderencia.score >= 40 ? "bg-accent" : "bg-destructive"}`}
+                    style={{ width: `${aderencia.score}%` }}
+                  />
+                </div>
+              </Card>
+            )}
 
             <div className="grid gap-4">
               {SECTIONS.map(({ key, titulo }) => {
@@ -364,7 +485,8 @@ const Index = () => {
               })}
             </div>
           </section>
-        )}
+          );
+        })()}
       </main>
 
       <footer className="border-t border-border mt-12 py-8 bg-secondary/40">
