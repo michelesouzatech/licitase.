@@ -293,12 +293,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { fileBase64, fileName } = parsed.data;
+    const { fileBase64, filePath, bucket, fileName } = parsed.data;
 
     let editalText = "";
     try {
-      const bytes = base64ToUint8Array(fileBase64);
-      editalText = await extractPdfText(bytes);
+      let bytes: Uint8Array | null = null;
+      if (filePath) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const sb = createClient(supabaseUrl, serviceRoleKey);
+        const bucketName = bucket || "editais";
+        const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
+        if (dlError || !fileData) {
+          throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+        }
+        bytes = new Uint8Array(await fileData.arrayBuffer());
+      } else if (fileBase64) {
+        bytes = base64ToUint8Array(fileBase64);
+      }
+      if (bytes) editalText = await extractPdfText(bytes);
     } catch (e) {
       console.error("Erro ao extrair PDF:", e);
       editalText = "";
