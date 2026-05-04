@@ -181,7 +181,7 @@ class StagedError extends Error {
   }
 }
 
-async function loadKnowledgeContext() {
+async function loadKnowledgeContext(editalText: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -191,93 +191,74 @@ async function loadKnowledgeContext() {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  console.log("Consultando public.kb_documents para tipo=knowledge_base e ativo=true");
+  const searchQuery = buildSearchQuery(editalText);
+  console.log("Buscando chunks na base com query:", searchQuery.slice(0, 200));
 
-  const { data: kbDocument, error: kbDocumentError } = await supabase
-    .schema("public")
-    .from("kb_documents")
-    .select("id,tipo,ativo,bucket_name,file_path,file_name,conteudo_extraido")
-    .eq("tipo", "knowledge_base")
-    .eq("ativo", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const matchedChunks: string[] = [];
 
-  if (kbDocumentError) {
-    console.error("Erro ao buscar documento da base SoftExpert:", kbDocumentError);
-    throw new StagedError(
-      "kb_query",
-      "Não foi possível consultar o documento da base de conhecimento SoftExpert",
-      kbDocumentError,
-    );
-  }
-
-  console.log("Resultado da query em public.kb_documents:", kbDocument);
-
-  if (!kbDocument) {
-    console.error("Documento da base SoftExpert não encontrado");
-    throw new StagedError("kb_query", "Documento ativo da base de conhecimento SoftExpert não encontrado");
-  }
-
-  const bucketName = String(kbDocument.bucket_name ?? "").trim();
-  const filePath = String(kbDocument.file_path ?? "").trim();
-
-  console.log("Documento da base SoftExpert encontrado:", {
-    id: kbDocument.id,
-    bucket_name: bucketName,
-    file_path: filePath,
-    file_name: kbDocument.file_name,
-  });
-  console.log("bucket_name encontrado:", bucketName);
-  console.log("file_path encontrado:", filePath);
-
-  if (!bucketName || !filePath) {
-    throw new StagedError("kb_query", "Documento da base SoftExpert sem bucket_name ou file_path");
-  }
-
-  let knowledgeContext = String(kbDocument.conteudo_extraido ?? "").trim();
-
-  if (!knowledgeContext) {
-    const { data: fileData, error: fileError } = await supabase.storage
-      .from(bucketName)
-      .download(filePath);
-
-    if (fileError || !fileData) {
-      console.error("Erro ao ler arquivo da base SoftExpert no Storage:", fileError);
-      throw new StagedError(
-        "storage_download",
-        "Base de conhecimento SoftExpert não foi carregada: falha ao ler o arquivo no Storage",
-        fileError,
-      );
+  try {
+    const { data: rpcChunks, error: rpcError } = await supabase.rpc("search_knowledge_chunks", {
+      search_text: searchQuery || "softexpert",
+      match_count: 25,
+    });
+    if (rpcError) {
+      console.warn("Erro no search_knowledge_chunks, caindo no fallback:", rpcError);
+    } else if (Array.isArray(rpcChunks)) {
+      for (const c of rpcChunks) {
+        const header = [c.title || c.file_name, c.solution_name, c.module_name]
+          .filter(Boolean).join(" • ");
+        matchedChunks.push(`### ${header}\n${c.content}`);
+      }
     }
+  } catch (e) {
+    console.warn("Falha ao chamar RPC search_knowledge_chunks:", e);
+  }
 
-    knowledgeContext = (await fileData.text()).trim();
-    console.log("Arquivo da base SoftExpert lido com sucesso");
-
-    if (knowledgeContext) {
-      const { error: updateError } = await supabase
-        .from("kb_documents")
-        .update({ conteudo_extraido: knowledgeContext })
-        .eq("id", kbDocument.id);
-
-      if (updateError) {
-        console.warn("Não foi possível persistir conteudo_extraido da base SoftExpert:", updateError);
+  // Fallback: pega chunks gerais mais recentes se a busca não retornar nada
+  if (matchedChunks.length === 0) {
+    console.log("Sem matches por busca; usando chunks recentes como contexto geral");
+    const { data: fallbackChunks, error: fbError } = await supabase
+      .from("knowledge_chunks")
+      .select("content, solution_name, module_name, document_id")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (fbError) {
+      console.error("Erro no fallback de knowledge_chunks:", fbError);
+    } else if (fallbackChunks) {
+      for (const c of fallbackChunks) {
+        const header = [c.solution_name, c.module_name].filter(Boolean).join(" • ");
+        matchedChunks.push(`### ${header}\n${c.content}`);
       }
     }
   }
 
-  if (!knowledgeContext) {
-    console.error("Base SoftExpert carregada, porém sem conteúdo textual");
-    throw new StagedError("context_build", "Base de conhecimento SoftExpert foi carregada, mas está vazia");
+  // Sempre concatena também a base resumida de kb_documents (se existir) para contexto institucional
+  try {
+    const { data: kbDocument } = await supabase
+      .from("kb_documents")
+      .select("conteudo_extraido")
+      .eq("tipo", "knowledge_base")
+      .eq("ativo", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const baseText = String(kbDocument?.conteudo_extraido ?? "").trim();
+    if (baseText) {
+      matchedChunks.unshift(`### Base institucional SoftExpert\n${baseText}`);
+    }
+  } catch (e) {
+    console.warn("Não foi possível carregar kb_documents complementar:", e);
   }
 
-  console.log("Tamanho do conteúdo da base SoftExpert carregado:", knowledgeContext.length);
-  console.log("Contexto SoftExpert enviado para IA não vazio:", knowledgeContext.length > 0);
+  const knowledgeContext = matchedChunks.join("\n\n---\n\n").slice(0, 60000);
 
-  return {
-    knowledgeContext,
-    matchedChunks: [knowledgeContext],
-  };
+  if (!knowledgeContext) {
+    throw new StagedError("context_build", "Base de conhecimento SoftExpert está vazia");
+  }
+
+  console.log(`Contexto montado: ${matchedChunks.length} chunks, ${knowledgeContext.length} chars`);
+
+  return { knowledgeContext, matchedChunks };
 }
 
 Deno.serve(async (req) => {
@@ -320,7 +301,7 @@ Deno.serve(async (req) => {
       editalText = "";
     }
 
-    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext();
+    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(editalText);
 
     let resultado: any;
     try {
