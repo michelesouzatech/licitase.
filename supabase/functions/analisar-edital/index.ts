@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
       editalText = "";
     }
 
-    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext();
+    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(editalText);
 
     let resultado: any;
     try {
