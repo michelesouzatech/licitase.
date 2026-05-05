@@ -45,6 +45,8 @@ const SECTIONS: { key: keyof Resultado; titulo: string }[] = [
   { key: "secao_12_go_nogo", titulo: "12. Recomendação GO/NO-GO" },
 ];
 
+const MAX_ANALYSIS_TEXT_CHARS = 90_000;
+
 function isTabela(v: unknown): v is TabelaSecao {
   return !!v && typeof v === "object" && (v as any).tipo === "tabela";
 }
@@ -73,7 +75,7 @@ function calcularScoreAderencia(
 async function extractPdfTextInBrowser(file: File) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const { text } = await extractText(bytes, { mergePages: true });
-  return String(text ?? "").trim();
+  return String(text ?? "").trim().slice(0, MAX_ANALYSIS_TEXT_CHARS);
 }
 
 const Index = () => {
