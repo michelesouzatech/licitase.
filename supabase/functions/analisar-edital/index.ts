@@ -18,9 +18,10 @@ const AI_TIMEOUT_MS = 18_000;
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
   filePath: z.string().min(1).optional(),
+  editalText: z.string().max(500_000).optional(),
   bucket: z.string().min(1).optional(),
   fileName: z.string().min(1).max(300),
-}).refine((d) => d.fileBase64 || d.filePath, { message: "fileBase64 ou filePath é obrigatório" });
+}).refine((d) => d.fileBase64 || d.filePath || d.editalText, { message: "fileBase64, filePath ou editalText é obrigatório" });
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
@@ -297,28 +298,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { fileBase64, filePath, bucket, fileName } = parsed.data;
+    const { fileBase64, filePath, editalText: providedEditalText, bucket, fileName } = parsed.data;
 
-    let editalText = "";
-    try {
-      let bytes: Uint8Array | null = null;
-      if (filePath) {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const sb = createClient(supabaseUrl, serviceRoleKey);
-        const bucketName = bucket || "editais";
-        const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
-        if (dlError || !fileData) {
-          throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+    let editalText = String(providedEditalText ?? "").trim();
+    if (!editalText) {
+      try {
+        let bytes: Uint8Array | null = null;
+        if (filePath) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const sb = createClient(supabaseUrl, serviceRoleKey);
+          const bucketName = bucket || "editais";
+          const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
+          if (dlError || !fileData) {
+            throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+          }
+          bytes = new Uint8Array(await fileData.arrayBuffer());
+        } else if (fileBase64) {
+          bytes = base64ToUint8Array(fileBase64);
         }
-        bytes = new Uint8Array(await fileData.arrayBuffer());
-      } else if (fileBase64) {
-        bytes = base64ToUint8Array(fileBase64);
+        if (bytes) editalText = await extractPdfText(bytes);
+      } catch (e) {
+        console.error("Erro ao extrair PDF:", e);
+        editalText = "";
       }
-      if (bytes) editalText = await extractPdfText(bytes);
-    } catch (e) {
-      console.error("Erro ao extrair PDF:", e);
-      editalText = "";
     }
 
     let knowledgeContext = "";
