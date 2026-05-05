@@ -13,6 +13,7 @@ import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
+const AI_TIMEOUT_MS = 35_000;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
@@ -102,8 +103,8 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
     throw new Error("LOVABLE_API_KEY não configurada");
   }
 
-  const editalExcerpt = editalText.slice(0, 70000);
-  const knowledgeExcerpt = knowledgeContext.slice(0, 18000);
+  const editalExcerpt = editalText.slice(0, 32000);
+  const knowledgeExcerpt = knowledgeContext.slice(0, 10000);
   const dataConsulta = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
 
@@ -129,21 +130,30 @@ ${knowledgeExcerpt || "Nenhum trecho relevante encontrado na base privada."}
 EDITAL:
 ${editalExcerpt}`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort("Tempo limite da IA excedido"), AI_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const raw = await response.text();
   if (!response.ok) {
