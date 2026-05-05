@@ -1,5 +1,4 @@
-// Edge function: receives a PDF (base64), extracts text, calls (mocked) analysis API,
-// returns the 12-section JSON result.
+// Edge function: receives already-extracted edital text, analyzes it, and returns the 12-section JSON result.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -8,8 +7,6 @@ const corsHeaders = {
 
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { z } from "npm:zod@3.25.76";
-// @ts-ignore - npm specifier in Deno
-import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
@@ -22,19 +19,6 @@ const requestSchema = z.object({
   bucket: z.string().min(1).optional(),
   fileName: z.string().min(1).max(300),
 }).refine((d) => d.fileBase64 || d.filePath || d.editalText, { message: "fileBase64, filePath ou editalText é obrigatório" });
-
-function base64ToUint8Array(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-async function extractPdfText(data: Uint8Array): Promise<string> {
-  const pdf = await getDocumentProxy(data);
-  const { text } = await extractText(pdf, { mergePages: true });
-  return (text as string).trim();
-}
 
 function buildMockResult(fileName: string, text: string, knowledgeContext = "") {
   const preview = text.slice(0, 280).replace(/\s+/g, " ");
