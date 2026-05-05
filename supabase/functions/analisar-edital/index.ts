@@ -13,13 +13,15 @@ import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
+const AI_TIMEOUT_MS = 18_000;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
   filePath: z.string().min(1).optional(),
+  editalText: z.string().max(500_000).optional(),
   bucket: z.string().min(1).optional(),
   fileName: z.string().min(1).max(300),
-}).refine((d) => d.fileBase64 || d.filePath, { message: "fileBase64 ou filePath é obrigatório" });
+}).refine((d) => d.fileBase64 || d.filePath || d.editalText, { message: "fileBase64, filePath ou editalText é obrigatório" });
 
 function base64ToUint8Array(b64: string): Uint8Array {
   const binary = atob(b64);
@@ -102,8 +104,8 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
     throw new Error("LOVABLE_API_KEY não configurada");
   }
 
-  const editalExcerpt = editalText.slice(0, 70000);
-  const knowledgeExcerpt = knowledgeContext.slice(0, 18000);
+  const editalExcerpt = editalText.slice(0, 32000);
+  const knowledgeExcerpt = knowledgeContext.slice(0, 10000);
   const dataConsulta = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
 
@@ -129,21 +131,30 @@ ${knowledgeExcerpt || "Nenhum trecho relevante encontrado na base privada."}
 EDITAL:
 ${editalExcerpt}`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.2,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort("Tempo limite da IA excedido"), AI_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.2,
+      }),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const raw = await response.text();
   if (!response.ok) {
@@ -261,6 +272,16 @@ async function loadKnowledgeContext(editalText: string) {
   return { knowledgeContext, matchedChunks };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timeoutId));
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -277,31 +298,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { fileBase64, filePath, bucket, fileName } = parsed.data;
+    const { fileBase64, filePath, editalText: providedEditalText, bucket, fileName } = parsed.data;
 
-    let editalText = "";
-    try {
-      let bytes: Uint8Array | null = null;
-      if (filePath) {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const sb = createClient(supabaseUrl, serviceRoleKey);
-        const bucketName = bucket || "editais";
-        const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
-        if (dlError || !fileData) {
-          throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+    let editalText = String(providedEditalText ?? "").trim();
+    if (!editalText) {
+      try {
+        let bytes: Uint8Array | null = null;
+        if (filePath) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const sb = createClient(supabaseUrl, serviceRoleKey);
+          const bucketName = bucket || "editais";
+          const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
+          if (dlError || !fileData) {
+            throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
+          }
+          bytes = new Uint8Array(await fileData.arrayBuffer());
+        } else if (fileBase64) {
+          bytes = base64ToUint8Array(fileBase64);
         }
-        bytes = new Uint8Array(await fileData.arrayBuffer());
-      } else if (fileBase64) {
-        bytes = base64ToUint8Array(fileBase64);
+        if (bytes) editalText = await extractPdfText(bytes);
+      } catch (e) {
+        console.error("Erro ao extrair PDF:", e);
+        editalText = "";
       }
-      if (bytes) editalText = await extractPdfText(bytes);
-    } catch (e) {
-      console.error("Erro ao extrair PDF:", e);
-      editalText = "";
     }
 
-    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(editalText);
+    let knowledgeContext = "";
+    let matchedChunks: string[] = [];
+    try {
+      const contextResult = await withTimeout(
+        loadKnowledgeContext(editalText),
+        10_000,
+        "Tempo limite ao consultar a base de conhecimento",
+      );
+      knowledgeContext = contextResult.knowledgeContext;
+      matchedChunks = contextResult.matchedChunks;
+    } catch (e) {
+      console.error("Erro ao carregar base; seguindo com análise sem contexto privado:", e);
+      knowledgeContext = "";
+      matchedChunks = [];
+    }
 
     let resultado: any;
     try {
