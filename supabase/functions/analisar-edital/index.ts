@@ -13,7 +13,7 @@ import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
-const AI_TIMEOUT_MS = 35_000;
+const AI_TIMEOUT_MS = 18_000;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
