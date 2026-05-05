@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { extractText } from "unpdf";
 
 type TabelaSecao = {
   tipo: "tabela";
@@ -69,17 +70,10 @@ function calcularScoreAderencia(
   return { score, total: totalLinhas, total_total: total, total_parcial: parcial, total_nao: nao };
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const b64 = result.split(",")[1] ?? "";
-      resolve(b64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function extractPdfTextInBrowser(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const { text } = await extractText(bytes, { mergePages: true });
+  return String(text ?? "").trim();
 }
 
 const Index = () => {
@@ -109,22 +103,10 @@ const Index = () => {
     }
     setLoading(true);
     try {
-      // Convert PDF to base64 and send directly to the edge function.
-      // The function persists the result server-side (service role).
-      const buf = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(buf);
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(
-          null,
-          Array.from(bytes.subarray(i, i + chunk)) as unknown as number[],
-        );
-      }
-      const fileBase64 = btoa(binary);
+      const editalText = await extractPdfTextInBrowser(file);
 
       const { data, error } = await supabase.functions.invoke("analisar-edital", {
-        body: { fileBase64, fileName: file.name },
+        body: { editalText, fileName: file.name },
       });
       if (error) throw error;
       const { resultado: r } = data as { resultado: Resultado };
