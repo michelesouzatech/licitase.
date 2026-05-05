@@ -1,5 +1,4 @@
-// Edge function: receives a PDF (base64), extracts text, calls (mocked) analysis API,
-// returns the 12-section JSON result.
+// Edge function: receives already-extracted edital text, analyzes it, and returns the 12-section JSON result.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -8,33 +7,20 @@ const corsHeaders = {
 
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { z } from "npm:zod@3.25.76";
-// @ts-ignore - npm specifier in Deno
-import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
 const AI_TIMEOUT_MS = 18_000;
+const MAX_EDITAL_TEXT_LEN = 90_000;
+const SEARCH_TEXT_LEN = 8_000;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
   filePath: z.string().min(1).optional(),
-  editalText: z.string().max(500_000).optional(),
+  editalText: z.string().max(MAX_EDITAL_TEXT_LEN).optional(),
   bucket: z.string().min(1).optional(),
   fileName: z.string().min(1).max(300),
 }).refine((d) => d.fileBase64 || d.filePath || d.editalText, { message: "fileBase64, filePath ou editalText é obrigatório" });
-
-function base64ToUint8Array(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-async function extractPdfText(data: Uint8Array): Promise<string> {
-  const pdf = await getDocumentProxy(data);
-  const { text } = await extractText(pdf, { mergePages: true });
-  return (text as string).trim();
-}
 
 function buildMockResult(fileName: string, text: string, knowledgeContext = "") {
   const preview = text.slice(0, 280).replace(/\s+/g, " ");
@@ -172,6 +158,7 @@ ${editalExcerpt}`;
 
 function buildSearchQuery(text: string) {
   const words = text
+    .slice(0, SEARCH_TEXT_LEN)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .split(/\s+/)
@@ -298,30 +285,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { fileBase64, filePath, editalText: providedEditalText, bucket, fileName } = parsed.data;
+    const { fileBase64, filePath, editalText: providedEditalText, fileName } = parsed.data;
 
-    let editalText = String(providedEditalText ?? "").trim();
+    let editalText = String(providedEditalText ?? "").trim().slice(0, MAX_EDITAL_TEXT_LEN);
     if (!editalText) {
-      try {
-        let bytes: Uint8Array | null = null;
-        if (filePath) {
-          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-          const sb = createClient(supabaseUrl, serviceRoleKey);
-          const bucketName = bucket || "editais";
-          const { data: fileData, error: dlError } = await sb.storage.from(bucketName).download(filePath);
-          if (dlError || !fileData) {
-            throw new Error(`Falha ao baixar PDF do storage (${bucketName}/${filePath}): ${dlError?.message ?? "sem dados"}`);
-          }
-          bytes = new Uint8Array(await fileData.arrayBuffer());
-        } else if (fileBase64) {
-          bytes = base64ToUint8Array(fileBase64);
-        }
-        if (bytes) editalText = await extractPdfText(bytes);
-      } catch (e) {
-        console.error("Erro ao extrair PDF:", e);
-        editalText = "";
-      }
+      console.warn("Requisição sem editalText; extração de PDF foi desativada na Edge Function para evitar timeout de CPU", {
+        hasFileBase64: Boolean(fileBase64),
+        hasFilePath: Boolean(filePath),
+      });
     }
 
     let knowledgeContext = "";
