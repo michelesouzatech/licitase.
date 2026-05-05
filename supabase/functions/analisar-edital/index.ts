@@ -271,6 +271,16 @@ async function loadKnowledgeContext(editalText: string) {
   return { knowledgeContext, matchedChunks };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => clearTimeout(timeoutId));
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -311,7 +321,21 @@ Deno.serve(async (req) => {
       editalText = "";
     }
 
-    const { knowledgeContext, matchedChunks } = await loadKnowledgeContext(editalText);
+    let knowledgeContext = "";
+    let matchedChunks: string[] = [];
+    try {
+      const contextResult = await withTimeout(
+        loadKnowledgeContext(editalText),
+        10_000,
+        "Tempo limite ao consultar a base de conhecimento",
+      );
+      knowledgeContext = contextResult.knowledgeContext;
+      matchedChunks = contextResult.matchedChunks;
+    } catch (e) {
+      console.error("Erro ao carregar base; seguindo com análise sem contexto privado:", e);
+      knowledgeContext = "";
+      matchedChunks = [];
+    }
 
     let resultado: any;
     try {
