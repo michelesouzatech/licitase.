@@ -287,7 +287,7 @@ Deno.serve(async (req) => {
 
     const { fileBase64, filePath, editalText: providedEditalText, fileName } = parsed.data;
 
-    let editalText = String(providedEditalText ?? "").trim();
+    let editalText = String(providedEditalText ?? "").trim().slice(0, MAX_EDITAL_TEXT_LEN);
     if (!editalText) {
       console.warn("Requisição sem editalText; extração de PDF foi desativada na Edge Function para evitar timeout de CPU", {
         hasFileBase64: Boolean(fileBase64),
