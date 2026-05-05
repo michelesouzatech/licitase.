@@ -11,11 +11,13 @@ import { z } from "npm:zod@3.25.76";
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
 const AI_TIMEOUT_MS = 18_000;
+const MAX_EDITAL_TEXT_LEN = 90_000;
+const SEARCH_TEXT_LEN = 8_000;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
   filePath: z.string().min(1).optional(),
-  editalText: z.string().max(500_000).optional(),
+  editalText: z.string().max(MAX_EDITAL_TEXT_LEN).optional(),
   bucket: z.string().min(1).optional(),
   fileName: z.string().min(1).max(300),
 }).refine((d) => d.fileBase64 || d.filePath || d.editalText, { message: "fileBase64, filePath ou editalText é obrigatório" });
@@ -156,6 +158,7 @@ ${editalExcerpt}`;
 
 function buildSearchQuery(text: string) {
   const words = text
+    .slice(0, SEARCH_TEXT_LEN)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .split(/\s+/)
