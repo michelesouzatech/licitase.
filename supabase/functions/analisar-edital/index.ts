@@ -92,8 +92,24 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
 
   const editalExcerpt = editalText.slice(0, 32000);
   const knowledgeExcerpt = knowledgeContext.slice(0, 10000);
-  const dataConsulta = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
+  const agora = new Date();
+  const dataConsulta = agora.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const dataConsultaExtensa = agora.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const dataIso = agora.toISOString().slice(0, 10);
+
+  const systemPrompt = `Você é uma especialista sênior em licitações públicas brasileiras (Lei 14.133/2021, Lei 10.520/2002, IN 73/2022) e em soluções SoftExpert.
+DATA DE HOJE: ${dataConsultaExtensa} (${dataConsulta} / ISO ${dataIso}). Use SEMPRE esta data como referência para calcular dias corridos, dias úteis, dias restantes e datas-limite. Nunca invente outra data "atual".
+PRIORIDADE ABSOLUTA: o EDITAL é a fonte primária e prevalece sobre qualquer outro documento, inclusive a BASE PRIVADA SOFTEXPERT. A base privada serve apenas como apoio para aferir aderência da SoftExpert; jamais contradiga ou substitua o edital.
+ESTILO: seja detalhista, técnica e específica. Cite literalmente trechos relevantes do edital entre aspas (com no máximo 2 linhas) e indique item/cláusula quando possível. PROIBIDO usar respostas vagas como "a validar", "consultar edital", "depende" sem antes esgotar a leitura do edital fornecido. Só use "A validar" quando o trecho realmente não constar no texto recebido — e, mesmo assim, explique o que precisa ser validado.
+SAÍDA: responda SOMENTE com JSON válido, sem markdown, sem comentários, sem texto fora do JSON.`;
+
+  const prompt = `Analise o edital abaixo e compare seus requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
 
 REGRAS CRÍTICAS DE FIDELIDADE:
 - Não invente funcionalidades, módulos, integrações, certificações, cases, prazos, diferenciais ou aderências.
