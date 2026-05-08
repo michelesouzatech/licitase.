@@ -148,10 +148,11 @@ ${editalExcerpt}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
+          { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        temperature: 0.2,
+        temperature: 0.1,
+        max_tokens: 8192,
       }),
     });
   } finally {
