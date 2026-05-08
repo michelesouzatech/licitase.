@@ -110,10 +110,51 @@ function extractJsonObject(raw: string) {
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
+const TABLE_SECTION_KEYS = new Set([
+  "secao_3_cronograma",
+  "secao_4_habilitacao",
+  "secao_6_aderencia_matriz",
+]);
+
+function coerceToText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map((v) => coerceToText(v)).filter(Boolean).map((s) => `- ${s}`).join("\n");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${k}: ${coerceToText(v)}`)
+      .join("\n");
+  }
+  return String(value);
+}
+
+function isTableObject(v: unknown): boolean {
+  return !!v && typeof v === "object" && (v as any).tipo === "tabela"
+    && Array.isArray((v as any).colunas) && Array.isArray((v as any).linhas);
+}
+
 function ensureRequiredSections(result: Record<string, unknown>) {
   for (const key of REQUIRED_SECTION_KEYS) {
     if (!(key in result)) {
-      result[key] = "";
+      result[key] = TABLE_SECTION_KEYS.has(key)
+        ? { tipo: "tabela", colunas: [], linhas: [] }
+        : "";
+      continue;
+    }
+    const v = result[key];
+    if (TABLE_SECTION_KEYS.has(key)) {
+      if (!isTableObject(v)) {
+        result[key] = {
+          tipo: "tabela",
+          colunas: ["Conteúdo"],
+          linhas: [[coerceToText(v) || "A validar"]],
+        };
+      }
+    } else if (typeof v !== "string") {
+      result[key] = coerceToText(v);
     }
   }
   return result;
