@@ -92,8 +92,24 @@ async function analyzeWithLovableAi(fileName: string, editalText: string, knowle
 
   const editalExcerpt = editalText.slice(0, 32000);
   const knowledgeExcerpt = knowledgeContext.slice(0, 10000);
-  const dataConsulta = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const prompt = `Você é uma especialista em licitações B2B e soluções SoftExpert. Analise o edital abaixo e compare os requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
+  const agora = new Date();
+  const dataConsulta = agora.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const dataConsultaExtensa = agora.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const dataIso = agora.toISOString().slice(0, 10);
+
+  const systemPrompt = `Você é uma especialista sênior em licitações públicas brasileiras (Lei 14.133/2021, Lei 10.520/2002, IN 73/2022) e em soluções SoftExpert.
+DATA DE HOJE: ${dataConsultaExtensa} (${dataConsulta} / ISO ${dataIso}). Use SEMPRE esta data como referência para calcular dias corridos, dias úteis, dias restantes e datas-limite. Nunca invente outra data "atual".
+PRIORIDADE ABSOLUTA: o EDITAL é a fonte primária e prevalece sobre qualquer outro documento, inclusive a BASE PRIVADA SOFTEXPERT. A base privada serve apenas como apoio para aferir aderência da SoftExpert; jamais contradiga ou substitua o edital.
+ESTILO: seja detalhista, técnica e específica. Cite literalmente trechos relevantes do edital entre aspas (com no máximo 2 linhas) e indique item/cláusula quando possível. PROIBIDO usar respostas vagas como "a validar", "consultar edital", "depende" sem antes esgotar a leitura do edital fornecido. Só use "A validar" quando o trecho realmente não constar no texto recebido — e, mesmo assim, explique o que precisa ser validado.
+SAÍDA: responda SOMENTE com JSON válido, sem markdown, sem comentários, sem texto fora do JSON.`;
+
+  const prompt = `Analise o edital abaixo e compare seus requisitos com a base privada SoftExpert fornecida. Responda SOMENTE com JSON válido, sem markdown, exatamente com as chaves: secao_1_objeto, secao_2_resumo_executivo, secao_3_cronograma, secao_4_habilitacao, secao_5_atestados, secao_6_aderencia_matriz, secao_7_evidencias, secao_8_modulos, secao_9_diferenciais, secao_10_riscos, secao_11_viabilidade, secao_12_go_nogo. Para secao_3_cronograma, secao_4_habilitacao e secao_6_aderencia_matriz, use objeto {"tipo":"tabela","colunas":[],"linhas":[]}.
 
 REGRAS CRÍTICAS DE FIDELIDADE:
 - Não invente funcionalidades, módulos, integrações, certificações, cases, prazos, diferenciais ou aderências.
@@ -103,7 +119,7 @@ REGRAS CRÍTICAS DE FIDELIDADE:
 - Em cada observação da matriz de aderência (secao_6_aderencia_matriz), descreva apenas a justificativa técnica/funcional da aderência. É TERMINANTEMENTE PROIBIDO mencionar, citar ou nomear qualquer arquivo, documento, material, catálogo, termo de referência, base, fonte ou origem da informação. NÃO escreva "conforme catálogo", "segundo o documento", "extraído de...", nem nomes próprios de documentos. Se não houver evidência, escreva apenas "sem evidência" ou "não evidenciado".
 - Na secao_7_evidencias, cite apenas evidências e trechos úteis. É TERMINANTEMENTE PROIBIDO mencionar, citar, referenciar ou nomear qualquer arquivo, documento, material, catálogo, termo de referência, edital ou base de onde a evidência foi extraída. NÃO escreva frases como "extraído do catálogo", "conforme o termo de referência", "segundo o documento X", "as evidências foram extraídas de...", "descritivo das soluções SoftExpert", nem nomes próprios de documentos. NÃO liste todos os componentes/módulos do catálogo SoftExpert: cite SOMENTE os componentes, módulos ou funcionalidades que efetivamente atendem a uma demanda específica do edital analisado, e para cada um explique brevemente qual requisito do edital ele atende. Apresente apenas o conteúdo da evidência em si, sem indicar fonte/origem.
 - Na secao_4_habilitacao, a resposta DEVE OBRIGATORIAMENTE ser um objeto {"tipo":"tabela","colunas":[...],"linhas":[[...]]} — NUNCA texto corrido. Cada item de habilitação (jurídica, fiscal, trabalhista, econômico-financeira, técnica, regularidade, etc.) deve ser UMA LINHA da tabela. Se nenhum item for identificado, retorne ao menos uma linha indicando "A validar no edital".
-- Na secao_3_cronograma, a resposta DEVE OBRIGATORIAMENTE ser um objeto {"tipo":"tabela","colunas":[...],"linhas":[[...]]}. Liste OBRIGATORIAMENTE TODAS as etapas/prazos a seguir, mesmo que precisem ser calculados ou estimados a partir da legislação aplicável (Lei 14.133/2021, Lei 10.520/2002, decretos pertinentes) quando o edital não trouxer data explícita: (1) Publicação do edital, (2) Prazo final para pedidos de esclarecimentos, (3) Prazo final para impugnação do edital, (4) Resposta a esclarecimentos/impugnações, (5) Prazo final para envio/cadastro das propostas, (6) Abertura da sessão pública, (7) Disputa/lances, (8) Habilitação, (9) Prazo recursal / contrarrazões, (10) Adjudicação, (11) Homologação, (12) Convocação para assinatura do contrato, (13) Prazo final para assinatura do contrato, (14) Vigência do contrato. NENHUMA dessas linhas pode ser omitida — se o edital não trouxer data, calcule a partir da data da consulta (${dataConsulta}) usando os prazos legais e explique a base de cálculo na coluna "Fonte no edital". Use exatamente as colunas: ["Etapa","Prazo/Data","Data limite calculada","Onde ocorre","Fonte no edital"]. Em "Data limite calculada", informe a data exata (dd/mm/aaaa) de expiração de cada prazo. Em "Onde ocorre", informe o site/portal/sistema onde a etapa será realizada (ex.: ComprasNet, BEC, Licitações-e, Portal de Compras Públicas, sede do órgão).
+- Na secao_3_cronograma, a resposta DEVE OBRIGATORIAMENTE ser um objeto {"tipo":"tabela","colunas":[...],"linhas":[[...]]}. HOJE é ${dataConsulta} — use esta data como base para TODOS os cálculos. Liste OBRIGATORIAMENTE TODAS as etapas/prazos a seguir, calculando datas a partir da data da sessão pública/abertura informada no edital (ou, na ausência, da data da consulta) e dos prazos legais (Lei 14.133/2021, Lei 10.520/2002, decretos pertinentes): (1) Publicação do edital, (2) Prazo final para pedidos de esclarecimentos (regra geral: até 3 dias úteis antes da abertura), (3) Prazo final para impugnação do edital (até 3 dias úteis antes), (4) Resposta a esclarecimentos/impugnações (até 3 dias úteis antes da abertura), (5) Prazo final para envio/cadastro das propostas, (6) Abertura da sessão pública, (7) Disputa/lances, (8) Habilitação, (9) Prazo recursal / contrarrazões (3 dias úteis), (10) Adjudicação, (11) Homologação, (12) Convocação para assinatura do contrato, (13) Prazo final para assinatura do contrato, (14) Vigência do contrato. NENHUMA dessas linhas pode ser omitida. Use exatamente as colunas: ["Etapa","Prazo/Data","Data limite calculada","Dias restantes","Onde ocorre","Fonte no edital"]. Em "Data limite calculada", informe a data exata (dd/mm/aaaa) de expiração de cada prazo. Em "Dias restantes", informe quantos dias corridos faltam entre HOJE (${dataConsulta}) e a data limite (use número negativo se já vencido, "0" se for hoje). Em "Fonte no edital", cite o item/cláusula do edital ou a base legal usada no cálculo (ex.: "Art. 164 Lei 14.133 — 3 dias úteis antes de 14/05 = 09/05"). Em "Onde ocorre", informe o site/portal/sistema (ex.: ComprasNet, BEC, Licitações-e, Portal de Compras Públicas, sede do órgão).
 - Na secao_4_habilitacao, apresente OBRIGATORIAMENTE uma tabela (objeto {"tipo":"tabela",...}) com os itens de habilitação em linhas. Use exatamente as colunas: ["Item de habilitação","Documento/evidência exigida","Onde buscar","Site/portal/órgão","Observações"]. Em "Onde buscar", indique se deve ser buscado em SICAF, portal de compras, certidões federais/estaduais/municipais, conselho profissional, junta comercial, balanço/contabilidade, edital/anexos ou outro local citado no edital.
 - Se a BASE PRIVADA SOFTEXPERT estiver vazia ou genérica, deixe claro que a aderência não pôde ser comprovada.
 - Não use conhecimento externo sobre a SoftExpert que não esteja na base fornecida.
@@ -132,10 +148,11 @@ ${editalExcerpt}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "Você produz análises técnicas de editais em JSON válido." },
+          { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        temperature: 0.2,
+        temperature: 0.1,
+        max_tokens: 8192,
       }),
     });
   } finally {
