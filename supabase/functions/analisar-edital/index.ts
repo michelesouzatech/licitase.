@@ -326,6 +326,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
+function sanitizePostgresText(value: string) {
+  return value.replace(/\u0000/g, "").replace(/\x00/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -368,13 +372,7 @@ Deno.serve(async (req) => {
       matchedChunks = [];
     }
 
-    let resultado: any;
-    try {
-      resultado = await analyzeWithLovableAi(fileName, editalText, knowledgeContext);
-    } catch (e) {
-      console.error("Erro ao analisar com IA; usando fallback local:", e);
-      resultado = buildMockResult(fileName, editalText, knowledgeContext);
-    }
+    const resultado = await analyzeWithLovableAi(fileName, editalText, knowledgeContext);
 
     // Persist result server-side (service role bypasses RLS)
     let licitacaoId: string | null = null;
@@ -385,7 +383,7 @@ Deno.serve(async (req) => {
       );
       const { data: inserted, error: insError } = await sb
         .from("licitacoes")
-        .insert({ pdf_name: fileName, edital_text: editalText, resultado_json: resultado })
+        .insert({ pdf_name: sanitizePostgresText(fileName), edital_text: sanitizePostgresText(editalText), resultado_json: resultado })
         .select("id")
         .single();
       if (insError) console.warn("Falha ao salvar licitacao:", insError);
