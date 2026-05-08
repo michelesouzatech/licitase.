@@ -10,9 +10,24 @@ import { z } from "npm:zod@3.25.76";
 
 // Limit base64 payload size (~8MB base64 ≈ 6MB binary). Edge Functions accept up to 10MB.
 const MAX_BASE64_LEN = 8_500_000;
-const AI_TIMEOUT_MS = 18_000;
+const AI_TIMEOUT_MS = 90_000;
 const MAX_EDITAL_TEXT_LEN = 90_000;
 const SEARCH_TEXT_LEN = 8_000;
+
+const REQUIRED_SECTION_KEYS = [
+  "secao_1_objeto",
+  "secao_2_resumo_executivo",
+  "secao_3_cronograma",
+  "secao_4_habilitacao",
+  "secao_5_atestados",
+  "secao_6_aderencia_matriz",
+  "secao_7_evidencias",
+  "secao_8_modulos",
+  "secao_9_diferenciais",
+  "secao_10_riscos",
+  "secao_11_viabilidade",
+  "secao_12_go_nogo",
+] as const;
 
 const requestSchema = z.object({
   fileBase64: z.string().min(1).max(MAX_BASE64_LEN).optional(),
@@ -77,11 +92,31 @@ function buildMockResult(fileName: string, text: string, knowledgeContext = "") 
 }
 
 function extractJsonObject(raw: string) {
-  const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) return cleaned;
-  return cleaned.slice(start, end + 1);
+  let jsonString = raw
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  const start = jsonString.indexOf("{");
+  const end = jsonString.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error(`Resposta da IA não contém objeto JSON válido: ${raw.slice(0, 500)}`);
+  }
+
+  jsonString = jsonString.substring(start, end + 1);
+  return jsonString
+    .replace(/,\s*}/g, "}")
+    .replace(/,\s*]/g, "]")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+}
+
+function ensureRequiredSections(result: Record<string, unknown>) {
+  for (const key of REQUIRED_SECTION_KEYS) {
+    if (!(key in result)) {
+      result[key] = "";
+    }
+  }
+  return result;
 }
 
 async function analyzeWithLovableAi(fileName: string, editalText: string, knowledgeContext: string) {
