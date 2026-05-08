@@ -202,10 +202,15 @@ ${editalExcerpt}`;
   const payload = JSON.parse(raw);
   const content = payload?.choices?.[0]?.message?.content;
   if (!content || typeof content !== "string") {
-    throw new Error("Resposta da IA sem conteúdo analisável");
+    throw new Error(`Resposta da IA sem conteúdo analisável: ${raw.slice(0, 500)}`);
   }
 
-  return JSON.parse(extractJsonObject(content));
+  try {
+    return ensureRequiredSections(JSON.parse(extractJsonObject(content)));
+  } catch (parseError) {
+    const msg = parseError instanceof Error ? parseError.message : String(parseError);
+    throw new Error(`Falha ao processar JSON da IA: ${msg}. Resposta bruta: ${content.slice(0, 1200)}`);
+  }
 }
 
 function buildSearchQuery(text: string) {
