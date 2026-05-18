@@ -276,15 +276,6 @@ const Index = () => {
                 Soft<span className="text-accent">Expert</span>
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <Link
-                to="/historico"
-                className="inline-flex items-center gap-1.5 text-primary-foreground/90 hover:text-accent text-sm font-semibold transition-colors"
-              >
-                <HistoryIcon className="h-4 w-4" />
-                Histórico
-              </Link>
-            </div>
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 mb-5">
