@@ -4,10 +4,10 @@ import type { Resultado, AderenciaScore, SectionMeta } from "@/types/edital";
 import { isTabela } from "@/types/edital";
 import { sanitizeFileName } from "./helpers";
 
-interface JsPDFWithGState extends jsPDF {
+type JsPDFWithGState = jsPDF & {
   GState: new (opts: { opacity: number }) => unknown;
-  setGState: (gs: unknown) => void;
-}
+  setGState: (gs: unknown) => jsPDF;
+};
 
 const PDF_MARGIN = 40;
 const PRIMARY_COLOR: [number, number, number] = [20, 45, 90];
